@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+ 
+}
+
+model User {
+    id String @id  @default(cuid())
+    clerUserId String @unique
+    name String?
+    email String @unique
+    createdAt DateTime @default(now())
+    membership OrganizationMember[]
+    documents Document[]
+    @@map("users")    
+}
+
+model Organization {
+    id String @id  @default(cuid())
+    clerOrgId String @unique
+    name String?
+    slug String @unique
+    createdAt DateTime @default(now())
+    members OrganizationMember[]
+    documents Document[]
+    @@map("organizations")    
+}
+
+model OrganizationMember {
+    id String @id  @default(cuid())
+    OrgId String 
+    UserId String
+    role String @default("member")
+    organization Organization @relation(fields: [OrgId],references: [id])
+    user User @relation(fields: [UserId],references: [id])
+    
+   @@unique([OrgId,UserId])
+    @@map("organizations_members")    
+}
+
+model Document{
+    id String @id  @default(cuid())
+    name String
+    content String?
+    fileUrl String?
+    fileSize Int?
+    fileType String?
+    aiSummery String?
+    aiKeyword String[]
+    sentiment String?
+
+    createdAt DateTime @default(now())
+     OrgId String 
+    UserId String
+   
+    organization Organization @relation(fields: [OrgId],references: [id])
+    user User @relation(fields: [UserId],references: [id])
+    @@map("documents")
+}
