@@ -4,6 +4,9 @@ import lessoni from "./database/lesson.json";
 import useri from "./database/user.json";
 import uniti from "./database/unit.json";
 import tagi from "./database/tag.json";
+import analogyi from "./database/analogy.json";
+import taguseri from "./database/tagUser.json";
+import tagrelatori from "./database/tagRelator.json";
 export function Create(inp:any){
     return {data:inp.data,out:(newData:any)=>{
         try {
@@ -28,3 +31,6 @@ export const {data:lesson, out:lessonOut} = Create(lessoni);
 export const {data:user, out:userOut} = Create(useri);
 export const {data:unit, out:unitOut} = Create(uniti);
 export const {data:tag, out:tagOut} = Create(tagi);
+export const {data:analogy, out:analogyOut} = Create(analogyi);
+export const {data:tagUser, out:tagUserOut} = Create(taguseri);
+export const {data:tagRelator, out:tagRelatorOut} = Create(tagrelatori);

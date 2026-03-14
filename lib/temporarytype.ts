@@ -1,7 +1,8 @@
 export type Analogy = {
     content: string;
     logic: string;
-    lesson: string; // The ID of the related Lesson
+    lessonId?: string;
+    ParagraphId?: string; // The ID of the related Paragraph
     likes: number;
     dislikes: number;
 }
@@ -16,12 +17,12 @@ export type  TagRelator = {
     liked: boolean; // true for like, false for dislike
     disliked: boolean;
     id: string;
-    tagId: string; // The ID of the Tag
-    analogyId?: string; // The ID of the related Analogy
+    TagId: string; // The ID of the Tag
+    AnalogyId?: string; // The ID of the related Analogy
    // analogy table for prisma
-    paragraphId?: string; // The ID of the related Lesson // The ID of the related Unit
-    summaryId?: string; // The ID of the related Summary
-    keywordId?: string;
+    ParagraphId?: string; // The ID of the related Lesson // The ID of the related Unit
+    SummaryId?: string; // The ID of the related Summary
+    KeyWordId?: string;
     
     // The ID of the related Keyword
     // The ID of the related Paragraph
@@ -35,7 +36,30 @@ export type User = {
 }
 export type UserTag = {
     id: string;
-    userId: string;
-    tagId: string;
+    UserId: string;
+    TagId: string;
     likingLevel: number; // negative for dislike, 0 for neutral, positive for like
+}
+export type Paragraph = {
+    id: string;
+    content: string;
+    LessonId: string; // The ID of the related Lesson
+    likes: number;
+    dislikes: number;
+    MasterParagraphId?: string; // The ID of the related MasterParagraph, if this is a personalized version
+}
+export type MasterParagraph = {
+    id: string;
+    content: string;
+    LessonId: string; 
+    RealParagraphId?: string;
+
+    // The ID of the related Lesson
+}
+export type RealParagraph = {
+    id:string;
+    content:string;
+    LessonId:string;
+    MasterParagraphId?:string;
+    AnalogyId?:string[];
 }
