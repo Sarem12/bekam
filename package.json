@@ -6,15 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dev_ai": "npx tsx --env-file=.env lib/gemini.ts"
   },
   "dependencies": {
     "@google/genai": "^1.45.0",
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^7.5.0",
+    "dotenv": "^17.3.1",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -25,6 +28,7 @@
     "eslint-config-next": "16.1.6",
     "prisma": "^7.5.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }
