@@ -1,62 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { lesson } from "../datarelated/data";
+import { MasterParagraph, PromptType, stringifiedContent, Unit, UserProfile ,Lesson} from "./types";
 // 1. --- TYPES (Aligned with Prisma Schema) ---
-export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph';
 
-export type UserProfile = {
-    gender: 'MALE' | 'FEMALE';
-    age: number;
-    tags: string[]; // These are the Tag names from your DB
-};
-export type stringifiedContent = {
-    content: string;
-    depth: number;
-}
-export type MasterParagraph = {
-    content: string;
-    lessonId: string;
-};
-
-export type Lesson = {
-    index: number; // Position within the unit
-    title: string;
-    paragraphs: MasterParagraph[];
-    sublessons: Lesson[]; 
-    // Allow nested lessons for flexibility
-};
-
-export type Unit = {
-    title: string;
-    lessons: Lesson[];
-};
 
 // 2. --- SETUP ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const CURRENT_MODEL = "gemini-3.1-flash-lite-preview";
 
 // 3. --- CORE FUNCTIONS ---
-export  function stringifyLesson(Lesson: Lesson,index:string = Lesson.index.toString(),depth: number = 0): stringifiedContent{
-      let text = `
-       ${Lesson.title}\n` + Lesson.paragraphs.map(p => p.content).join("\n");
-    if(Lesson.sublessons.length > 0) depth ++;
-       for (const sub of Lesson.sublessons) {
-        const subc= stringifyLesson(sub,`${index}.${sub.index}`, depth);
-        text += `\n${subc.content}`;
-        depth = Math.max(depth, subc.depth);
-    }
-    return { content: text, depth};
-}
 
-export function stringifyUnit(unit: Unit): stringifiedContent {
-    let text = `Unit: ${unit.title}\n`;
-    unit.lessons.forEach(lesson => {
-        text += stringifyLesson(lesson).content + "\n";
-    });
-    return { content: text, depth: 10 };
-}
-export function stringifyMasterParagraph(paragraph: MasterParagraph):stringifiedContent {
-    return { content: paragraph.content, depth: 0 };
-}
 
 export async function generateContent(payload: {
     user: UserProfile;
