@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { PromptType, stringifiedContent, UserProfile } from "./types";
 import { ProbabilityManager } from "./apiprobablitymanager";
 
-// 1. --- SETUP ---
+
 const probablityEngine = new ProbabilityManager([
     process.env.GEMINI_API_KEY!,
     process.env.GEMINI_API_KEY_2!,
@@ -11,7 +11,7 @@ const probablityEngine = new ProbabilityManager([
 
 const CURRENT_MODEL = "gemini-3.1-flash-lite-preview";
 
-// 2. --- CORE FUNCTIONS ---
+
 
 export async function generateContent(payload: {
     user: UserProfile;
@@ -34,7 +34,8 @@ export async function generateContent(payload: {
         summary: `{ "summary": "string" }`,
         paragraph: `{ "personalized": "string" }`,
         analogy: `{ "content": "string", "logic": "string", "interestContext": "string" }`,
-        keyword: `{ "keywords": [{ "word": "string", "definition": "string" }] }`
+        keyword: `{ "keywords": [{ "word": "string", "definition": "string" }] }`,
+        note:`{ "content": "string" }`
     };
     
     let taskInstructions = "";
@@ -47,7 +48,7 @@ export async function generateContent(payload: {
                 STRICT RULES:
                 1. NO ANALOGIES: Absolutely no "It is like" or "Think of this as."
                 2. NO INTEREST VOCABULARY: Do not use words like "game," "computer," "code," "loot," or "space." 
-                3. SYSTEM LOGIC: Use the functional logic of ${payload.user.tags[0]} to organize the flow (input -> process -> output) but use neutral, professional science language.
+                3. SYSTEM LOGIC: Use the functional logic of ${payload.user.tags[0]} to organize the flow (input -> process -> output) but use neutral, professional science language, make a better flow from the old one.
                 4. WORD CHOICE: Use clear words like "transformed," "processed," or "assigned."
                 5. PHYSICAL STEPS: Use "part" for "apparatus," "small bags" for "vesicles," and "sending out" for "secretion." 
                 6. SCIENTIFIC NAMES: You MUST keep the core biological terms (e.g., Golgi apparatus) so the lesson remains accurate.
@@ -83,6 +84,19 @@ export async function generateContent(payload: {
                 2. SYSTEM FLOW: Focus only on how items move or change.
                 3. VOCABULARY: Use the simplest possible action words.`;
             break;
+    
+        case 'note':
+            if(payload.target.depth > 0) throw new Error("Note generation doesn't accept depth > 1")
+            taskInstructions = `
+                Write a concise note that captures the core ideas of the text just like a teacher would.
+                STRICT RULES:
+                1. NO INTEREST WORDS: Do not use "game," "computer," etc.
+                2. FOCUS: Capture the core concept or function in a single, clear sentence.
+                3. TONE: Write a direct, factual note. No "chill" or "mentor" personality.
+                4. FORMATTING: Do NOT add numbers (1., 2.) or bullets. Write a flowing sentence.
+                5. SYSTEM LOGIC: Use the functional logic of ${payload.user.tags[0]} to organize the flow (input -> process -> output) but use neutral, professional science language.
+                `;
+            break;
     }
 
     const finalPrompt = `
@@ -102,7 +116,7 @@ export async function generateContent(payload: {
         const result = await model.generateContent(finalPrompt);
         const responseText = result.response.text();
         
-        // CLEANING LOGIC: Strips markdown code blocks and whitespace
+
         const cleanJson = responseText
             .replace(/```json/g, "")
             .replace(/```/g, "")

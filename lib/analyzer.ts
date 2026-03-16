@@ -2,26 +2,27 @@ import {
     Analogy, Tag, TagRelatorAnalogy, UserTag, UserAnalogy, 
     RealParagraph, TagRelatorParagraph, 
     Summery, UserSummery, TagRelatorSummery,
-    KeyWord, KeyWords, UserKeyWords, TagRelatorKeyWords 
+    KeyWord, KeyWords, UserKeyWords, TagRelatorKeyWords, 
+    UserNote,
+    Note,
+    TagRelatorNote
 } from "./temporarytype";
 
 import { 
     analogy, tagUser, tagRelatorAnalogy, tag, userAnalogy,
     realParagraph, tagRelatorParagraph, 
     summery, tagRelatorSummery, userSummery,
-    keyword, keywords, tagRelatorKeyWords, userKeyWords
+    keyword, keywords, tagRelatorKeyWords, userKeyWords,
+    tagRelatorNote,
+    userNote,
+    note
 } from "@/datarelated/data";
-
-// ==========================================
-// 0. UNIVERSAL SCORING ENGINE
-// ==========================================
-// Add UniversalTag to your imports in the data file
 import { universalTag } from "@/datarelated/data"; 
 import { UniversalTag } from "./temporarytype";
 
 function calculateScore(
     contentId: string,
-    contentKey: 'AnalogyId' | 'ParagraphId' | 'SummeryId' | 'KeyWordsId',
+    contentKey: 'AnalogyId' | 'ParagraphId' | 'SummeryId' | 'KeyWordsId' | 'NoteId',
     relators: any[],
     userProfile: UserTag[],
     rejectedTagIds: string[] = [],
@@ -215,6 +216,87 @@ export async function ChangeToBestKeyWord(currentKeyWordId: string, userId: stri
     for (const item of candidates) {
         const score = calculateScore(item.id, 'KeyWordsId', tagRelatorKeyWords, userProfile);
         if (score > topScore) { topScore = score; winner = item; }
+    }
+    return winner;
+}
+
+export async function GetBestNote(lessonId: string, userId: string): Promise<Note | null> {
+    if (!lessonId || !userId) return null;
+
+    const userProfile = (tagUser as UserTag[]).filter(ut => ut.UserId === userId);
+    const history = (userNote as UserNote[]).filter(un => un.UserId === userId);
+    
+    // Safety check: Filter out flagged or disliked notes
+    const flaggedIds = history.filter(un => un.flaged).map(un => un.NoteId);
+    const dislikedIds = history.filter(un => un.status === 'dislike').map(un => un.NoteId);
+
+    // Filter candidates for this lesson
+    const candidates = (note as Note[]).filter(item => 
+        item.LessonId === lessonId && !flaggedIds.includes(item.id)
+    );
+
+    let winner = null; 
+    let topScore = -Infinity;
+
+    for (const item of candidates) {
+        const score = calculateScore(
+            item.id, 
+            'NoteId', 
+            tagRelatorNote, 
+            userProfile, 
+            [], 
+            dislikedIds.includes(item.id)
+        );
+
+        if (score > topScore) { 
+            topScore = score; 
+            winner = item; 
+        }
+    }
+    return winner;
+}
+
+/**
+ * Switches the current note to a different personalized version
+ * while avoiding the tags that characterize the note the user just rejected.
+ */
+export async function ChangeToBestNote(currentNoteId: string, userId: string): Promise<Note | null> {
+    const current = (note as Note[]).find(n => n.id === currentNoteId);
+    // We assume Note has a reference to its parent/default via 'DefaultNoteId' or similar mapping logic
+    if (!current) return null;
+
+    const userProfile = (tagUser as UserTag[]).filter(ut => ut.UserId === userId);
+    const history = (userNote as UserNote[]).filter(un => un.UserId === userId);
+    const flaggedIds = history.filter(un => un.flaged).map(un => un.NoteId);
+
+    // Identify tags linked to the note the user is "skipping" to avoid similar ones
+    const rejectedTagIds = (tagRelatorNote as TagRelatorNote[])
+        .filter(tr => tr.NoteId === currentNoteId)
+        .map(tr => tr.TagId);
+
+    // Find other versions belonging to the same lesson/default context
+    const candidates = (note as Note[]).filter(item => 
+        item.LessonId === current.LessonId && 
+        item.id !== currentNoteId && 
+        !flaggedIds.includes(item.id)
+    );
+
+    let winner = null; 
+    let topScore = -Infinity;
+
+    for (const item of candidates) {
+        const score = calculateScore(
+            item.id, 
+            'NoteId', 
+            tagRelatorNote, 
+            userProfile, 
+            rejectedTagIds
+        );
+
+        if (score > topScore) { 
+            topScore = score; 
+            winner = item; 
+        }
     }
     return winner;
 }

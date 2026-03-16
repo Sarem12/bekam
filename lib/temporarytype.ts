@@ -1,213 +1,317 @@
+// --- EDUCATION STRUCTURE ---
 
-export type Book ={
+export type Book = {
     id: string;
     subject: string;
     grade: number;
     imgUrl: string;
-
-}
-
-
-export type Lesson = {
-    id: string;
-    title: string;
-    unitId: string; // The ID of the related Unit
-    ParentLessonId?: string; // The ID of the related Parent Lesson, if this is a sub-lesson
 }
 
 export type Unit = {
     id: string;
     title: string;
-    BookId: string; // The ID of the related Lesson
+    BookId: string; 
 }
-export type Tag = {
-id:string; 
-name:string;
-linkedWith: string[]; // Array of Tag names this tag is linked to
 
+export type Lesson = {
+    id: string;
+    title: string;
+    unitId: string; 
+    ParentLessonId?: string; 
 }
+
+// --- TAGGING SYSTEM ---
+
+export type Tag = {
+    id: string; 
+    name: string;
+    linkedWith: string[]; 
+}
+
 export type UniversalTag = {
-    id:string;
-   TagId: string; // The ID of the related Tag
+    id: string;
+    TagId: string;
 }
+
+// --- USER SYSTEM ---
+
 export type User = {
     id: string;
-    gender:string;
+    gender: string;
     age: number;
     name: string;
-    
 }
+
 export type UserTag = {
     id: string;
     UserId: string;
     TagId: string;
-    likingLevel: number; // negative for dislike, 0 for neutral, positive for like
+    likingLevel: number; 
 }
 
+// --- ANALOGY SYSTEM ---
+
 export type Analogy = {
-    id:string;
+    id: string;
     content: string;
     logic: string;
     lessonId?: string;
-    ParagraphId?: string; // The ID of the related Paragraph
+    ParagraphId?: string;
     likes: number;
     dislikes: number;
-    defaultAnalogyId: string; // The ID of the related Analogy (for personalized versions)
-}
-export type UserAnalogy = {
-    id: string;
-    UserId: string; // The ID of the related User
-    AnalogyId: string; // The ID of the related Analogy
-    status: 'like' | 'dislike' | 'neutral';
-    flaged: boolean;
-    // User's preference for this analogy
+    defaultAnalogyId: string;
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string; 
 }
 
 export type DefaultAnalogy = {
-    id:string;
+    id: string;
     content: string;
     logic: string;
     lessonId?: string;
-    ParagraphId?: string; // The ID of the related Paragraph
+    ParagraphId?: string;
     likes: number;
-    UserId: string; // The ID of the User who created this default analogy
-    order: number; // The order of this analogy among the defaults for the same context
     dislikes: number;
-    AnalogyId: string; // The ID of the related Analogy (for personalized versions)
+    UserId: string; 
+    order: number; 
+    AnalogyId: string;
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
-export type  TagRelatorAnalogy = {
-    likes: number; // true for like, false for dislike
-    dislikes: number;
-    id: string;
-    TagId: string; // The ID of the Tag
-    AnalogyId: string; // The ID of the related Analogy
-   // analogy table for prisma
 
-    // The ID of the related Keyword
-    // The ID of the related Paragraph
+export type UserAnalogy = {
+    id: string;
+    UserId: string; 
+    AnalogyId: string; 
+    status: 'like' | 'dislike' | 'neutral';
+    flaged: boolean;
+    onuse: boolean; 
+    lastSeenAt: string; // Date to track refresh logic
+}
+
+export type TagRelatorAnalogy = {
+    id: string;
+    TagId: string; 
+    AnalogyId: string; 
+    likes: number; 
+    dislikes: number;
+    // Ratio Tracking
+    views: number;
+    usage: number;
+    flags: number;
+}
+
+// --- PARAGRAPH SYSTEM ---
+
+export type RealParagraph = {
+    id: string;
+    content: string;
+    LessonId: string;
+    MasterParagraphId?: string;
+    order: number; 
+    AnalogyId?: string[];
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
 
 export type Paragraph = {
     id: string;
     content: string;
-    LessonId: string; // The ID of the related Lesson
+    LessonId: string; 
     likes: number;
     dislikes: number;
-    order: number; // The order of this paragraph within the lesson
-    MasterParagraphId?: string; // The ID of the related MasterParagraph, if this is a personalized version
+    order: number; 
+    MasterParagraphId?: string;
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
-export type UserParagraph = {
-    id: string;
-    UserId: string; // The ID of the related User
-    ParagraphId: string; // The ID of the related Paragraph
-    status: 'like' | 'dislike' | 'neutral';
-    flaged: boolean;
-    order: number; // The order of this paragraph among the personalized versions for the same context
-    // User's preference for this paragraph
-}
+
 export type DefaultParagraph = {
     id: string;
     content: string;
     LessonId: string;
-    order: number; // The order of this paragraph within the lesson
+    order: number; 
     RealParagraphId?: string;
-
-    // The ID of the related Lesson
 }
-export type RealParagraph = {
-    id:string;
-    content:string;
-    LessonId:string;
-    MasterParagraphId?:string;
-    order: number; // The order of this paragraph within the lesson
-    AnalogyId?:string[];
 
-}
-export type TagRelatorParagraph = {
-    likes: number; // true for like, false for dislike
-    dislikes: number;
+export type UserParagraph = {
     id: string;
-    TagId: string; // The ID of the Tag
-    ParagraphId: string; // The ID of the related Paragraph
+    UserId: string; 
+    ParagraphId: string; 
+    status: 'like' | 'dislike' | 'neutral';
+    flaged: boolean;
+    onuse: boolean; 
+    lastSeenAt: string;
 }
 
+export type TagRelatorParagraph = {
+    id: string;
+    TagId: string; 
+    ParagraphId: string; 
+    likes: number; 
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
+}
+
+// --- SUMMARY SYSTEM ---
 
 export type Summery = {
     id: string;
     content: string;
     LessonId: string;
-    UnitId: string; // The ID of the related Unit
+    UnitId: string; 
     likes: number;
     dislikes: number;
-    DefaultSummeryId?: string; // The ID of the related MasterSummery, if this is a personalized version
+    DefaultSummeryId?: string;
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
-
 
 export type DefaultSummery = {
     id: string;
     content: string;
     LessonId: string;
-    UnitId: string; // The ID of the related Unit
+    UnitId: string; 
     likes: number;
     dislikes: number;
-    UserId: string; // The ID of the User who created this default summery
-    order: number; // The order of this summery among the defaults for the same context
-    SummeryId: string; // The ID of the related Summery (for personalized versions)
+    UserId: string; 
+    order: number; 
+    SummeryId: string; 
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
 
 export type UserSummery = {
     id: string;
-    UserId: string; // The ID of the related User
-    SummeryId: string; // The ID of the related Summery
+    UserId: string; 
+    SummeryId: string; 
     status: 'like' | 'dislike' | 'neutral';
     flaged: boolean;
-    // User's preference for this summery
+    onuse: boolean; 
+    lastSeenAt: string;
 }
+
 export type TagRelatorSummery = {
-    likes: number; // true for like, false for dislike
-    dislikes: number;
     id: string;
-    TagId: string; // The ID of the Tag
-    SummeryId: string; // The ID of the related Summery
-   // analogy table for prisma
+    TagId: string; 
+    SummeryId: string; 
+    likes: number; 
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
 }
+
+// --- KEYWORD SYSTEM ---
+
 export type KeyWord = {
     id: string;
     word: string;
     definition: string;
-     // Group for Simple vs. Technical versions
 }
 
-// The "Assignment" - Connects the Dictionary to the Lesson
 export type KeyWords = {
     id: string;
     lessonId?: string;      
-    ParagraphId?: string;        // Foreign Key to the KeyWord table
+    ParagraphId?: string;         
     isCoreConcept: boolean; 
-    DefinitionId?: string; // Is this essential for the whole lesson?
+    DefinitionId?: string; 
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
-export type UserKeyWords = {
-    id: string;
-    UserId: string; // The ID of the related User
-    KeyWordsId: string; // The ID of the related KeyWord
-    status: 'like' | 'dislike' | 'neutral';
-    flaged: boolean;
-    // User's preference for this keyword
-}
+
 export type KeyWordDefault = {
     id: string;
     lessonId?: string;
-    ParagraphId?: string;        // Foreign Key to the KeyWord table
-    isCoreConcept: boolean;  // Is this essential for the whole lesson?
-    UserId: string; // The ID of the User who created this default keyword assignment
-    order: number; // The order of this keyword among the defaults for the same context
-     // The ID of the related KeyWords (for personalized versions)
+    ParagraphId?: string;         
+    isCoreConcept: boolean;  
+    UserId: string; 
+    order: number; 
 }
-export type TagRelatorKeyWords = {
-    likes: number; // true for like, false for dislike
-    dislikes: number;
+
+export type UserKeyWords = {
     id: string;
-    TagId: string; // The ID of the Tag
-    KeyWordsId: string; // The ID of the related KeyWord
-   // analogy table for prisma
+    UserId: string; 
+    KeyWordsId: string; 
+    status: 'like' | 'dislike' | 'neutral';
+    flaged: boolean;
+    onuse: boolean; 
+    lastSeenAt: string;
+}
+
+export type TagRelatorKeyWords = {
+    id: string;
+    TagId: string; 
+    KeyWordsId: string; 
+    likes: number; 
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
+}
+
+// --- NOTE SYSTEM ---
+
+export type Note = {
+    id: string;
+    content: string;
+    UserId: string; 
+    LessonId: string; 
+    // Performance Engine Fields
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
+}
+
+export type NoteDefault = {
+    id: string;
+    content: string;
+    UserId: string; 
+    LessonId: string; 
+    UnitId: string; 
+}
+
+export type UserNote = {
+    id: string;
+    UserId: string; 
+    NoteId: string; 
+    status: 'like' | 'dislike' | 'neutral';
+    flaged: boolean;
+    onuse: boolean; 
+    lastSeenAt: string;
+}
+
+export type TagRelatorNote = {
+    id: string;
+    TagId: string; 
+    NoteId: string; 
+    likes: number; 
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
 }

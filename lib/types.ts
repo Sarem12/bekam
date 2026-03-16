@@ -1,4 +1,4 @@
-export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph';
+export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph'|'note';
  // Ensure this is set in your environment variables
 export type UserProfile = {
     gender: 'MALE' | 'FEMALE';

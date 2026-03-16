@@ -15,17 +15,20 @@ import tagUseri from "./database/tagUser.json";
 import uniti from "./database/unit.json";
 import useri from "./database/user.json";
 import userAnalogyi from "./database/userAnalogy.json";
-
-// ADD THESE (Create these .json files in your database folder if they don't exist)
 import userSummeryi from "./database/userSummery.json";
 import keywordi from "./database/keyword.json";
 import keywordsi from "./database/keywords.json";
 import userKeyWordsi from "./database/userKeyWords.json";
-import universakTagi from "./database/universalTag.json";
+import universalTagi from "./database/universalTag.json";
+
+// --- NOTE IMPORTS ---
+import notei from "./database/note.json";
+import userNotei from "./database/userNote.json";
+
 // 2. --- FACTORY FUNCTION ---
 export function Create(inp: any) {
     return {
-        data: inp.data,
+        data: inp.data as Record<string, any>[],
         out: (newData: any) => {
             try {
                 const filePath = path.join(process.cwd(), "database", `${inp.name}.json`);
@@ -53,21 +56,25 @@ export const { data: tag, out: tagOut } = Create(tagi);
 export const { data: tagUser, out: tagUserOut } = Create(tagUseri);
 export const { data: unit, out: unitOut } = Create(uniti);
 export const { data: user, out: userOut } = Create(useri);
+export const { data: note, out: noteOut } = Create(notei); // Note Export
 
 // User Interaction Data
 export const { data: userAnalogy, out: userAnalogyOut } = Create(userAnalogyi);
 export const { data: userSummery, out: userSummeryOut } = Create(userSummeryi);
 export const { data: userKeyWords, out: userKeyWordsOut } = Create(userKeyWordsi);
+export const { data: userNote, out: userNoteOut } = Create(userNotei); // UserNote Export
 
-// Keyword Data
+// Keyword & Universal Data
 export const { data: keyword, out: keywordOut } = Create(keywordi);
 export const { data: keywords, out: keywordsOut } = Create(keywordsi);
+export const { data: universalTag, out: universalTagOut } = Create(universalTagi);
 
-// Relators (Fixing the "Member not found" errors)
-// We map all specific relator imports to the main tagRelator data
+// Relators (Unified Mapping)
+// This maps all specific relator names back to the main tagRelator file
 export const { data: tagRelator, out: tagRelatorOut } = Create(tagRelatori);
+
 export const tagRelatorAnalogy = tagRelator;
 export const tagRelatorParagraph = tagRelator;
 export const tagRelatorSummery = tagRelator;
 export const tagRelatorKeyWords = tagRelator;
-export const { data: universalTag, out: universalTagOut } = Create(universakTagi);
+export const tagRelatorNote = tagRelator; // New Note Relator Mapping
