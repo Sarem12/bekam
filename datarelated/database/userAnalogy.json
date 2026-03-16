@@ -1,0 +1,59 @@
+{"name":"userAnalogy",
+    "data":[
+  {
+    "id": "ua1",
+    "UserId": "u1",
+    "AnalogyId": "ana1",
+    "status": "like",
+    "flaged": false
+  },
+  {
+    "id": "ua2",
+    "UserId": "u1",
+    "AnalogyId": "ana11",
+    "status": "dislike",
+    "flaged": false
+  },
+  {
+    "id": "ua3",
+    "UserId": "u1",
+    "AnalogyId": "ana20",
+    "status": "neutral",
+    "flaged": true
+  },
+  {
+    "id": "ua4",
+    "UserId": "u2",
+    "AnalogyId": "ana31",
+    "status": "like",
+    "flaged": false
+  },
+  {
+    "id": "ua5",
+    "UserId": "u2",
+    "AnalogyId": "ana2",
+    "status": "dislike",
+    "flaged": false
+  },
+  {
+    "id": "ua6",
+    "UserId": "u3",
+    "AnalogyId": "ana3",
+    "status": "like",
+    "flaged": false
+  },
+  {
+    "id": "ua7",
+    "UserId": "u3",
+    "AnalogyId": "ana9",
+    "status": "neutral",
+    "flaged": true
+  },
+  {
+    "id": "ua8",
+    "UserId": "u3",
+    "AnalogyId": "ana29",
+    "status": "dislike",
+    "flaged": false
+  }
+]}

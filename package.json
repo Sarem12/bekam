@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "dev_ai": "npx tsx --env-file=.env lib/gemini.experiment.ts",
-    "dev_analyzer": "npx tsx --env-file=.env lib/analyzer.ts"
+    "dev_ana": "npx tsx --env-file=.env lib/analyzer.experiment.ts"
   },
   "dependencies": {
     "@google/genai": "^1.45.0",

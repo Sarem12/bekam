@@ -1,4 +1,7 @@
-
+export type Lesson = {
+    id: string;
+    title: string;
+}
 
 export type Analogy = {
     id:string;
@@ -8,10 +11,28 @@ export type Analogy = {
     ParagraphId?: string; // The ID of the related Paragraph
     likes: number;
     dislikes: number;
+    defaultAnalogyId: string; // The ID of the related Analogy (for personalized versions)
 }
+export type UserAnalogy = {
+    id: string;
+    UserId: string; // The ID of the related User
+    AnalogyId: string; // The ID of the related Analogy
+    status: 'like' | 'dislike' | 'neutral';
+    flaged: boolean;
+    // User's preference for this analogy
+}
+
 export type AnalogyDefault = {
     id:string;
-    AnalogyId?: string; // The ID of the related Analogy (for personalized versions)
+    content: string;
+    logic: string;
+    lessonId?: string;
+    ParagraphId?: string; // The ID of the related Paragraph
+    likes: number;
+    UserId: string; // The ID of the User who created this default analogy
+    order: number; // The order of this analogy among the defaults for the same context
+    dislikes: number;
+    AnalogyId: string; // The ID of the related Analogy (for personalized versions)
 }
 export type Tag = {
 id:string; 

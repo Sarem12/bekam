@@ -1,149 +1,147 @@
-import { Analogy, Paragraph, RealParagraph, Tag, TagRelator, User, UserTag } from "./temporarytype";
-import { analogy,tagUser,tagRelator,tag, realParagraph,user } from "@/datarelated/data";
-export async function GetBestAnalogy(paragraph: RealParagraph, user: User): Promise<Analogy | null> {
+import { Analogy, Tag, TagRelator, UserTag, UserAnalogy } from "./temporarytype";
+import { analogy, tagUser, tagRelator, tag, userAnalogy } from "@/datarelated/data";
+
+// --- HELPER SCORING FUNCTION ---
+export function calculateAnalogyScore(
+    ana: Analogy, 
+    userProfile: UserTag[], 
+    rejectedTagIds: string[] = [],
+    isDisliked: boolean = false
+): number {
+    let currentScore = 0;
+
+    for (const ut of userProfile) {
+        const relator = (tagRelator as TagRelator[]).find(tr => 
+            tr.AnalogyId === ana.id && tr.TagId === ut.TagId
+        );
+
+        let matchValue = 0;
+        if (relator) {
+            const communityTotal = relator.likes + relator.dislikes;
+            const communityApproval = communityTotal > 0 ? relator.likes / communityTotal : 0.5;
+            matchValue = ut.likingLevel * communityApproval;
+        }
+
+        // Penalty for "Tag Fatigue"
+        if (rejectedTagIds.includes(ut.TagId)) {
+            matchValue *= 0.2; 
+        }
+
+        currentScore += matchValue;
+
+        // Personality Neighbor Logic
+        const targetTag = (tag as Tag[]).find(t => t.id === ut.TagId);
+        if (targetTag?.linkedWith?.length) {
+            const neighborRelators = (tagRelator as TagRelator[]).filter(tr => 
+                tr.AnalogyId === ana.id && targetTag.linkedWith.includes(tr.TagId)
+            );
+            currentScore += neighborRelators.length * 0.5;
+        }
+    }
+
+    if (isDisliked) {
+        currentScore -= 100;
+    }
+
+    return currentScore;
+}
+
+// --- MAIN FUNCTIONS ---
+
+export async function GetBestAnalogy(
+    targetId: string | undefined | null, // GUARDED INPUT
+    type: 'paragraph' | 'lesson', 
+    userId: string
+): Promise<Analogy | null> {
+
+    // 1. GUARD CLAUSE: Skip if ID is missing
+    if (!targetId || !userId) return null;
+
+    const userProfile = (tagUser as UserTag[]).filter(ut => ut.UserId === userId);
+    const userHistory = (userAnalogy as UserAnalogy[]).filter(ua => ua.UserId === userId);
     
-    // 1. Filter analogies belonging to this specific RealParagraph
-    const candidates = (analogy as Analogy[]).filter(ana => ana.ParagraphId === paragraph.id);
+    const flaggedIds = userHistory.filter(ua => ua.flaged).map(ua => ua.AnalogyId);
+    const dislikedIds = userHistory.filter(ua => ua.status === 'dislike').map(ua => ua.AnalogyId);
+
+    // 2. CONTEXTUAL ROUTING
+    const candidates = (analogy as Analogy[]).filter(ana => {
+        const matchesContext = type === 'paragraph' 
+            ? ana.ParagraphId === targetId 
+            : ana.lessonId === targetId;
+
+        return matchesContext && !flaggedIds.includes(ana.id);
+    });
+
     if (!candidates.length) return null;
 
-    // 2. Get the user's personality profile
-    const userProfile = (tagUser as UserTag[]).filter(ut => ut.UserId === user.id);
-
+    // 3. SELECTION
     let winner: Analogy | null = null;
     let topScore = -Infinity;
 
-    // Logic Gates
-    const MIN_LIKE_RATIO = 0.6; // 60% positive rating required
-    const MIN_MATCH_SCORE = 1.0; // Must have at least some relevance
-
     for (const ana of candidates) {
-        let currentScore = 0;
+        const isDisliked = dislikedIds.includes(ana.id);
+        const score = calculateAnalogyScore(ana, userProfile, [], isDisliked);
 
-        // --- GLOBAL QUALITY FILTER ---
-        const globalTotal = ana.likes + ana.dislikes;
-        const globalRatio = globalTotal > 0 ? ana.likes / globalTotal : 0.5;
-        if (globalRatio < MIN_LIKE_RATIO && globalTotal > 10) continue;
-
-        for (const ut of userProfile) {
-            // Find the Relator that matches this Analogy + this User's Tag
-            const relator = (tagRelator as TagRelator[]).find(tr => 
-                tr.AnalogyId === ana.id && tr.TagId === ut.TagId
-            );
-
-            if (relator) {
-                // Calculate Community Approval Ratio
-                const communityTotal = relator.likes + relator.dislikes;
-                const communityApproval = communityTotal > 0 
-                    ? relator.likes / communityTotal 
-                    : 0.5;
-
-                // Personalized Score = User Interest (1-5) * Community Approval (0-1)
-                currentScore += ut.likingLevel * communityApproval;
-            }
-
-            // --- PERSONALITY NEIGHBOR LOGIC ---
-            const targetTag = (tag as Tag[]).find(t => t.id === ut.TagId);
-            if (targetTag?.linkedWith?.length) {
-                const neighborRelators = (tagRelator as TagRelator[]).filter(tr => 
-                    tr.AnalogyId === ana.id && targetTag.linkedWith.includes(tr.TagId)
-                );
-                // Boost for related interests
-                currentScore += neighborRelators.length * 0.5;
-            }
-        }
-
-        // --- WINNER SELECTION ---
-        if (currentScore >= MIN_MATCH_SCORE) {
-            if (currentScore > topScore) {
-                topScore = currentScore;
-                winner = ana;
-            } 
-            // Tie-breaker: If scores match, pick the one with more global likes
-            else if (currentScore === topScore && winner) {
-                if (ana.likes > winner.likes) {
-                    winner = ana;
-                }
-            }
+        if (score > topScore) {
+            topScore = score;
+            winner = ana;
         }
     }
 
     return winner;
 }
 
+export async function ChangeToBestAnalogy(
+    initialAnalogyId: string | undefined | null, // The ID currently on screen
+    userId: string 
+): Promise<Analogy | null> {
+    
+    // 1. GUARD CLAUSE
+    if (!initialAnalogyId || !userId) return null;
 
-export async function ChangeToBestAnalogy(initail_analogy: Analogy,paragraph: RealParagraph, user: User): Promise<Analogy | null>  
-{
- // 1. Filter analogies belonging to this specific RealParagraph
-    const candidates = (analogy as Analogy[]).filter(ana => ana.ParagraphId === paragraph.id);
+    // 2. FIND THE MASTER ANCHOR
+    // We need to know which "group" the current analogy belongs to
+    const currentAnalogy = (analogy as Analogy[]).find(a => a.id === initialAnalogyId);
+    if (!currentAnalogy) return null;
+
+    const masterId = currentAnalogy.defaultAnalogyId;
+
+    // 3. DATA FETCHING
+    const userHistory = (userAnalogy as UserAnalogy[]).filter(ua => ua.UserId === userId);
+    const userProfile = (tagUser as UserTag[]).filter(ut => ut.UserId === userId);
+
+    const flaggedIds = userHistory.filter(ua => ua.flaged).map(ua => ua.AnalogyId);
+    const dislikedIds = userHistory.filter(ua => ua.status === 'dislike').map(ua => ua.AnalogyId);
+
+    // 4. GROUP-BASED FILTERING
+    // We look for any analogy that shares the same masterId
+    const candidates = (analogy as Analogy[]).filter(ana => {
+        const isInSameGroup = ana.defaultAnalogyId === masterId;
+        const isForbidden = flaggedIds.includes(ana.id) || ana.id === initialAnalogyId;
+
+        return isInSameGroup && !isForbidden;
+    });
+    
     if (!candidates.length) return null;
 
-    // 2. Get the user's personality profile
-    const userProfile = (tagUser as UserTag[]).filter(ut => ut.UserId === user.id);
+    // 5. TAG FATIGUE (Identify why they might have rejected the previous one)
+    const rejectedTagIds = (tagRelator as TagRelator[])
+        .filter(tr => tr.AnalogyId === initialAnalogyId)
+        .map(tr => tr.TagId);
 
+    // 6. SCORING
     let winner: Analogy | null = null;
     let topScore = -Infinity;
 
-    // Logic Gates
-    const MIN_LIKE_RATIO = 0.6; // 60% positive rating required
-    const MIN_MATCH_SCORE = 1.0; // Must have at least some relevance
-
     for (const ana of candidates) {
-        let currentScore = 0;
+        const isDisliked = dislikedIds.includes(ana.id);
+        const score = calculateAnalogyScore(ana, userProfile, rejectedTagIds, isDisliked);
 
-        // --- GLOBAL QUALITY FILTER ---
-        const globalTotal = ana.likes + ana.dislikes;
-        const globalRatio = globalTotal > 0 ? ana.likes / globalTotal : 0.5;
-        if (globalRatio < MIN_LIKE_RATIO && globalTotal > 10) continue;
-
-        for (const ut of userProfile) {
-            // Find the Relator that matches this Analogy + this User's Tag
-            const relator = (tagRelator as TagRelator[]).find(tr => 
-                tr.AnalogyId === ana.id && tr.TagId === ut.TagId
-            );
-
-            if (relator) {
-                // Calculate Community Approval Ratio
-                const communityTotal = relator.likes + relator.dislikes;
-                const communityApproval = communityTotal > 0 
-                    ? relator.likes / communityTotal 
-                    : 0.5;
-
-                // Personalized Score = User Interest (1-5) * Community Approval (0-1)
-                currentScore += ut.likingLevel * communityApproval;
-            }
-
-            // --- PERSONALITY NEIGHBOR LOGIC ---
-            const targetTag = (tag as Tag[]).find(t => t.id === ut.TagId);
-            if (targetTag?.linkedWith?.length) {
-                const neighborRelators = (tagRelator as TagRelator[]).filter(tr => 
-                    tr.AnalogyId === ana.id && targetTag.linkedWith.includes(tr.TagId)
-                );
-                // Boost for related interests
-                currentScore += neighborRelators.length * 0.5;
-            }
-        }
-
-        // --- WINNER SELECTION ---
-        if (currentScore >= MIN_MATCH_SCORE) {
-            if (currentScore > topScore) {
-                topScore = currentScore;
-                winner = ana;
-            } 
-            // Tie-breaker: If scores match, pick the one with more global likes
-            else if (currentScore === topScore && winner) {
-                if (ana.likes > winner.likes) {
-                    winner = ana;
-                }
-            }
+        if (score > topScore) {
+            topScore = score;
+            winner = ana;
         }
     }
 
     return winner;
 }
-// Expermental
-async function example(){
-    const ans = await GetBestAnalogy(realParagraph[0], user[1]);
-    console.log("Best Analogy:", ans);
-}
-
-example();
