@@ -33,7 +33,7 @@ export async function generateContent(payload: {
     const jsonSchemas: Record<PromptType, string> = {
         summary: `{ "summary": "string" }`,
         paragraph: `{ "personalized": "string" }`,
-        analogy: `{ "content": "string", "logic": "string", "interestContext": "string" }`,
+        analogy: `{ "content": "string", "logic": "string", "interestContext": "string","tagsUsed": ["string"] }`,
         keyword: `{ "keywords": [{ "word": "string", "definition": "string" }] }`,
         note:`{ "content": "string" }`
     };
@@ -72,8 +72,15 @@ export async function generateContent(payload: {
         case 'analogy':
             if(payload.target.depth > 1) throw new Error("Analogy doesn't accept depth > 1")
             taskInstructions = `
-                Create ONE very simple metaphor using the logic of ${payload.user.tags.join(" or ")}.
-                Use it to explain the main goal of the process. Keep it to 2 sentences.`;
+               1. CREATE: One simple metaphor for the biological process using the logic of: ${payload.user.tags.join(", ")}.
+        2. CONTENT: Keep the explanation to 2 sentences.
+        3. LOGIC: Explain how the biological process and the interest share the same functional steps.
+        4. CONTEXT: Identify which specific interest you used (e.g., "Gaming" or "Physics").
+        5. TAGS: List the tags you used from the user's interests exactly the same name with out case changes.
+
+        STRICT RULES:
+        - The "content" must explain the science through the lens of the interest.
+        - The "tagsUsed" MUST be a subset of the user interests provided.`;
             break;
             
         case 'summary':

@@ -1,30 +1,4 @@
 {
   "name": "analogyDefault",
-  "data": [
-    { "id": "ad1", "content": "Brain of the cell.", "logic": "General", "ParagraphId": "p1", "likes": 10, "dislikes": 1, "AnalogyId": "ana1" },
-    { "id": "ad2", "content": "Powerhouse of the cell.", "logic": "General", "ParagraphId": "p2", "likes": 100, "dislikes": 5, "AnalogyId": "ana4" },
-    { "id": "ad3", "content": "Protein factory.", "logic": "General", "ParagraphId": "p3", "likes": 40, "dislikes": 2, "AnalogyId": "ana7" },
-    { "id": "ad4", "content": "Security guard.", "logic": "General", "ParagraphId": "p4", "likes": 30, "dislikes": 0, "AnalogyId": "ana10" },
-    { "id": "ad5", "content": "Solar panels.", "logic": "General", "ParagraphId": "p5", "likes": 50, "dislikes": 3, "AnalogyId": "ana13" },
-    { "id": "ad6", "content": "Storage closet.", "logic": "General", "ParagraphId": "p6", "likes": 20, "dislikes": 1, "AnalogyId": "ana16" },
-    { "id": "ad7", "content": "Recycling center.", "logic": "General", "ParagraphId": "p7", "likes": 35, "dislikes": 2, "AnalogyId": "ana19" },
-    { "id": "ad8", "content": "The floor of a room.", "logic": "General", "ParagraphId": "p8", "likes": 15, "dislikes": 8, "AnalogyId": "ana22" },
-    { "id": "ad9", "content": "Instruction manual.", "logic": "General", "ParagraphId": "p9", "likes": 60, "dislikes": 2, "AnalogyId": "ana25" },
-    { "id": "ad10", "content": "Zipping a file.", "logic": "General", "ParagraphId": "p10", "likes": 25, "dislikes": 1, "AnalogyId": "ana28" },
-    { "id": "ad11", "content": "A tool that fits a bolt.", "logic": "General", "ParagraphId": "p11", "likes": 40, "dislikes": 4, "AnalogyId": "ana31" },
-    { "id": "ad12", "content": "Crowd spreading out.", "logic": "General", "ParagraphId": "p12", "likes": 30, "dislikes": 5, "AnalogyId": "ana34" },
-    { "id": "ad13", "content": "A thirsty sponge.", "logic": "General", "ParagraphId": "p13", "likes": 45, "dislikes": 3, "AnalogyId": "ana37" },
-    { "id": "ad14", "content": "Pushing a boulder uphill.", "logic": "General", "ParagraphId": "p14", "likes": 20, "dislikes": 1, "AnalogyId": "ana40" },
-    { "id": "ad15", "content": "A charged battery.", "logic": "General", "ParagraphId": "p15", "likes": 70, "dislikes": 0, "AnalogyId": "ana43" },
-    { "id": "ad16", "content": "Post office shipping center.", "logic": "General", "ParagraphId": "p16", "likes": 55, "dislikes": 4, "AnalogyId": "ana46" },
-    { "id": "ad17", "content": "A highway system.", "logic": "General", "ParagraphId": "p17", "likes": 40, "dislikes": 2, "AnalogyId": "ana49" },
-    { "id": "ad18", "content": "A sturdy brick wall.", "logic": "General", "ParagraphId": "p18", "likes": 50, "dislikes": 1, "AnalogyId": "ana52" },
-    { "id": "ad19", "content": "Lassoing a rope.", "logic": "General", "ParagraphId": "p19", "likes": 15, "dislikes": 3, "AnalogyId": "ana55" },
-    { "id": "ad20", "content": "A text message.", "logic": "General", "ParagraphId": "p20", "likes": 60, "dislikes": 2, "AnalogyId": "ana58" },
-    { "id": "ad21", "content": "Gasoline for a car.", "logic": "General", "ParagraphId": "p21", "likes": 50, "dislikes": 1, "AnalogyId": "ana1" },
-    { "id": "ad22", "content": "Fatty insulation.", "logic": "General", "ParagraphId": "p22", "likes": 30, "dislikes": 10, "AnalogyId": "ana4" },
-    { "id": "ad23", "content": "One room studio apartment.", "logic": "General", "ParagraphId": "p23", "likes": 40, "dislikes": 2, "AnalogyId": "ana7" },
-    { "id": "ad24", "content": "A large multi-room house.", "logic": "General", "ParagraphId": "p24", "likes": 55, "dislikes": 3, "AnalogyId": "ana10" },
-    { "id": "ad25", "content": "Shuffling a deck of cards.", "logic": "General", "ParagraphId": "p25", "likes": 80, "dislikes": 2, "AnalogyId": "ana13" }
-  ]
+  "data": []
 }

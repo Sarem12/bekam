@@ -10,11 +10,13 @@ export type stringifiedContent = {
     depth: number;
 }
 export type MasterParagraph = {
+    id:string;
     content: string;
     lessonId: string;
 };
 
 export type Lesson = {
+    id: string;
     index: number; // Position within the unit
     title: string;
     paragraphs: MasterParagraph[];

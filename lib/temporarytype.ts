@@ -23,8 +23,8 @@ export type Lesson = {
 // --- TAGGING SYSTEM ---
 
 export type Tag = {
-    id: string; 
-    name: string;
+    id: string; //unique identifier
+    name: string; // unique name of the tag, e.g., "Visual Learner", "Struggles with Math", "Prefers Stories"
     linkedWith: string[]; 
 }
 
