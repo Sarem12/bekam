@@ -13,10 +13,11 @@ import tagi from "./database/tag.json";
 import tagUseri from "./database/tagUser.json";
 import uniti from "./database/unit.json";
 import useri from "./database/user.json";
-import keywordi from "./database/keyword.json";
+import keywordi from "./database/keyWord.json";
 import keywordsi from "./database/keywords.json";
 import universalTagi from "./database/universalTag.json";
 import notei from "./database/note.json";
+import noteDefaulti from "./database/noteDefault.json";
 
 // --- USER INTERACTION IMPORTS ---
 import userAnalogyi from "./database/userAnalogy.json";
@@ -82,3 +83,5 @@ export const { data: tagRelatorSummery, out: tagRelatorSummeryOut } = Create(tag
 export const { data: tagRelatorKeyWords, out: tagRelatorKeyWordsOut } = Create(tagRelatorKeyWordsi);
 export const { data: tagRelatorNote, out: tagRelatorNoteOut } = Create(tagRelatorNotei);
 export const { data: userTag, out: userTagOut } = Create(usertagi);
+
+export const { data: noteDefault, out: noteDefaultOut } = Create(noteDefaulti);

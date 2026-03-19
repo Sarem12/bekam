@@ -1,8 +1,10 @@
-export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph'|'note';
+export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph' | 'note';
+
 export type stringifiedContent = {
     content: string;
     depth: number;
 }
+
 // --- EDUCATION STRUCTURE ---
 
 export type Book = {
@@ -15,29 +17,29 @@ export type Book = {
 export type Unit = {
     id: string;
     title: string;
-    BookId: string; 
+    BookId: string;
 }
 
 export type Lesson = {
     id: string;
     title: string;
-    unitId: string; 
-    ParentLessonId?: string; 
+    unitId: string;
+    ParentLessonId?: string;
     index: number;
 }
 
 // --- TAGGING SYSTEM ---
 
 export type Tag = {
-    id: string; //unique identifier
-    name: string; // unique name of the tag, e.g., "Visual Learner", "Struggles with Math", "Prefers Stories"
-    linkedWith: string[]; 
+    id: string;
+    name: string;
+    linkedWith: string[];
 }
 
 export type UniversalTag = {
     id: string;
     TagId: string;
-    index: number; // For ordering in the system
+    index: number;
 }
 
 // --- USER SYSTEM ---
@@ -53,7 +55,7 @@ export type UserTag = {
     id: string;
     UserId: string;
     TagId: string;
-    likingLevel: number; 
+    likingLevel: number;
 }
 
 // --- ANALOGY SYSTEM ---
@@ -67,11 +69,10 @@ export type Analogy = {
     likes: number;
     dislikes: number;
     defaultAnalogyId: string;
-    // Performance Engine Fields
     views: number;
     usage: number;
     flags: number;
-    createdAt: string; 
+    createdAt: string;
 }
 
 export type DefaultAnalogy = {
@@ -82,10 +83,9 @@ export type DefaultAnalogy = {
     ParagraphId?: string;
     likes: number;
     dislikes: number;
-    UserId: string; 
-    order: number; 
+    UserId: string;
+    order: number;
     AnalogyId: string;
-    // Performance Engine Fields
     views: number;
     usage: number;
     flags: number;
@@ -94,26 +94,24 @@ export type DefaultAnalogy = {
 
 export type UserAnalogy = {
     id: string;
-    UserId: string; 
-    AnalogyId: string; 
+    UserId: string;
+    AnalogyId: string;
     status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
-    onuse: boolean; 
+    onuse: boolean;
     lastSeenAt: string;
-    skiped: boolean; // Date to track refresh logic
+    skiped: boolean;
 }
 
 export type TagRelatorAnalogy = {
     id: string;
-    TagId: string; 
-    AnalogyId: string; 
-    likes: number; 
+    TagId: string;
+    AnalogyId: string;
+    likes: number;
     dislikes: number;
-    // Ratio Tracking
     views: number;
     usage: number;
     flags: number;
-     // To track if the analogy was skipped by users, which can be a strong signal of irrelevance
 }
 
 // --- PARAGRAPH SYSTEM ---
@@ -123,14 +121,8 @@ export type RealParagraph = {
     content: string;
     LessonId: string;
     MasterParagraphId?: string;
-    order: number; 
-
-
-
-
-    
+    order: number;
     AnalogyId?: string[];
-    // Performance Engine Fields
     views: number;
     usage: number;
     flags: number;
@@ -140,12 +132,11 @@ export type RealParagraph = {
 export type Paragraph = {
     id: string;
     content: string;
-    LessonId: string; 
-    likes: number;
-    dislikes: number;
-    order: number; 
+    LessonId: string;
+    likes: number; // Added
+    dislikes: number; // Added
+    order: number;
     MasterParagraphId?: string;
-    // Performance Engine Fields
     views: number;
     usage: number;
     flags: number;
@@ -156,25 +147,33 @@ export type DefaultParagraph = {
     id: string;
     content: string;
     LessonId: string;
-    order: number; 
+    order: number;
     RealParagraphId?: string;
+    // Added for consistency
+    likes: number;
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
 
 export type UserParagraph = {
     id: string;
-    UserId: string; 
-    ParagraphId: string; 
+    UserId: string;
+    ParagraphId: string;
     status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
-    onuse: boolean; 
+    onuse: boolean;
     lastSeenAt: string;
-    skiped: boolean; // Added for refresh logic
+    skiped: boolean;
 }
+
 export type TagRelatorParagraph = {
     id: string;
-    TagId: string; 
-    ParagraphId: string; 
-    likes: number; 
+    TagId: string;
+    ParagraphId: string;
+    likes: number;
     dislikes: number;
     views: number;
     usage: number;
@@ -187,7 +186,7 @@ export type Summery = {
     id: string;
     content: string;
     LessonId: string;
-    UnitId: string; 
+    UnitId: string;
     likes: number;
     dislikes: number;
     DefaultSummeryId?: string;
@@ -201,13 +200,12 @@ export type DefaultSummery = {
     id: string;
     content: string;
     LessonId: string;
-    UnitId: string; 
+    UnitId: string;
     likes: number;
     dislikes: number;
-    UserId: string; 
-    order: number; 
-    SummeryId: string; 
-    // Performance Engine Fields
+    UserId: string;
+    order: number;
+    SummeryId: string;
     views: number;
     usage: number;
     flags: number;
@@ -216,20 +214,20 @@ export type DefaultSummery = {
 
 export type UserSummery = {
     id: string;
-    UserId: string; 
-    SummeryId: string; 
+    UserId: string;
+    SummeryId: string;
     status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
-    onuse: boolean; 
+    onuse: boolean;
     lastSeenAt: string;
-    skiped: boolean; // Added for refresh logic
+    skiped: boolean;
 }
 
 export type TagRelatorSummery = {
     id: string;
-    TagId: string; 
-    SummeryId: string; 
-    likes: number; 
+    TagId: string;
+    SummeryId: string;
+    likes: number;
     dislikes: number;
     views: number;
     usage: number;
@@ -246,11 +244,12 @@ export type KeyWord = {
 
 export type KeyWords = {
     id: string;
-    lessonId?: string;      
-    ParagraphId?: string;         
-    isCoreConcept: boolean; 
-    DefinitionId?: string; 
-    // Performance Engine Fields
+    lessonId?: string;
+    ParagraphId?: string;
+    isCoreConcept: boolean;
+    DefinitionId?: string;
+    likes: number; // Added
+    dislikes: number; // Added
     views: number;
     usage: number;
     flags: number;
@@ -260,28 +259,35 @@ export type KeyWords = {
 export type KeyWordDefault = {
     id: string;
     lessonId?: string;
-    ParagraphId?: string;         
-    isCoreConcept: boolean;  
-    UserId: string; 
-    order: number; 
+    ParagraphId?: string;
+    isCoreConcept: boolean;
+    UserId: string;
+    order: number;
+    // Added for consistency
+    likes: number;
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
 
 export type UserKeyWords = {
     id: string;
-    UserId: string; 
-    KeyWordsId: string; 
+    UserId: string;
+    KeyWordsId: string;
     status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
-    onuse: boolean; 
+    onuse: boolean;
     lastSeenAt: string;
-    skiped: boolean; // Added for refresh logic
+    skiped: boolean;
 }
 
 export type TagRelatorKeyWords = {
     id: string;
-    TagId: string; 
-    KeyWordsId: string; 
-    likes: number; 
+    TagId: string;
+    KeyWordsId: string;
+    likes: number;
     dislikes: number;
     views: number;
     usage: number;
@@ -293,9 +299,10 @@ export type TagRelatorKeyWords = {
 export type Note = {
     id: string;
     content: string;
-    UserId: string; 
-    LessonId: string; 
-    // Performance Engine Fields
+    UserId: string;
+    LessonId: string;
+    likes: number; // Added
+    dislikes: number; // Added
     views: number;
     usage: number;
     flags: number;
@@ -305,27 +312,34 @@ export type Note = {
 export type NoteDefault = {
     id: string;
     content: string;
-    UserId: string; 
-    LessonId: string; 
-    UnitId: string; 
+    UserId: string;
+    LessonId: string;
+    UnitId: string;
+    // Added for consistency
+    likes: number;
+    dislikes: number;
+    views: number;
+    usage: number;
+    flags: number;
+    createdAt: string;
 }
 
 export type UserNote = {
     id: string;
-    UserId: string; 
-    NoteId: string; 
+    UserId: string;
+    NoteId: string;
     status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
-    onuse: boolean; 
+    onuse: boolean;
     lastSeenAt: string;
-    skiped: boolean; // Added for refresh logic
+    skiped: boolean;
 }
 
 export type TagRelatorNote = {
     id: string;
-    TagId: string; 
-    NoteId: string; 
-    likes: number; 
+    TagId: string;
+    NoteId: string;
+    likes: number;
     dislikes: number;
     views: number;
     usage: number;
