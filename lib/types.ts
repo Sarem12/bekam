@@ -124,6 +124,11 @@ export type RealParagraph = {
     LessonId: string;
     MasterParagraphId?: string;
     order: number; 
+
+
+
+
+    
     AnalogyId?: string[];
     // Performance Engine Fields
     views: number;
@@ -159,7 +164,7 @@ export type UserParagraph = {
     id: string;
     UserId: string; 
     ParagraphId: string; 
-    status: 'like' | 'dislike' | 'neutral';
+    status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
     onuse: boolean; 
     lastSeenAt: string;
@@ -213,7 +218,7 @@ export type UserSummery = {
     id: string;
     UserId: string; 
     SummeryId: string; 
-    status: 'like' | 'dislike' | 'neutral';
+    status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
     onuse: boolean; 
     lastSeenAt: string;
@@ -265,7 +270,7 @@ export type UserKeyWords = {
     id: string;
     UserId: string; 
     KeyWordsId: string; 
-    status: 'like' | 'dislike' | 'neutral';
+    status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
     onuse: boolean; 
     lastSeenAt: string;
@@ -309,7 +314,7 @@ export type UserNote = {
     id: string;
     UserId: string; 
     NoteId: string; 
-    status: 'like' | 'dislike' | 'neutral';
+    status: 'liked' | 'disliked' | 'neutral';
     flaged: boolean;
     onuse: boolean; 
     lastSeenAt: string;

@@ -3,7 +3,7 @@ import {
     RealParagraph, Paragraph, TagRelatorParagraph, 
     Summery, UserSummery, TagRelatorSummery,
     KeyWord, KeyWords, UserKeyWords, TagRelatorKeyWords, 
-    UserNote, Note, TagRelatorNote, UniversalTag
+    UserNote, Note, TagRelatorNote, UniversalTag,UserParagraph
 } from "./types";
 
 import { 
@@ -11,7 +11,8 @@ import {
     realParagraph, paragraph, tagRelatorParagraph, 
     summery, tagRelatorSummery, userSummery,
     keyword, keywords, tagRelatorKeyWords, userKeyWords,
-    tagRelatorNote, userNote, note, universalTag
+    tagRelatorNote, userNote, note, universalTag,
+    userParagraph
 } from "@/datarelated/data";
 
 /**
@@ -88,30 +89,7 @@ function pickWinner<T>(scoredItems: { item: T, score: number, tagCount: number }
 // 1. ANALOGY MODULE
 // ==========================================
 
-export async function GetBestAnalogy(targetId: string, type: 'paragraph' | 'lesson', userId: string): Promise<Analogy | null> {
-    if (!targetId || !userId) return null;
-    const profile = (tagUser as UserTag[]).filter(u => u.UserId === userId);
-    const blocked = (userAnalogy as UserAnalogy[]).filter(ua => ua.UserId === userId && (ua.flaged || ua.status === 'disliked' || ua.skiped)).map(ua => ua.AnalogyId);
 
-    const candidates = (analogy as Analogy[]).filter(item => {
-        if (blocked.includes(item.id)) return false;
-
-        if (type === 'paragraph') {
-            let masterId = (realParagraph as RealParagraph[]).find(rp => rp.id === targetId)?.MasterParagraphId 
-                        || (paragraph as Paragraph[]).find(p => p.id === targetId)?.MasterParagraphId;
-            let siblingParas = (paragraph as Paragraph[]).filter(p => p.MasterParagraphId === masterId).map(p => p.id);
-            return item.ParagraphId && siblingParas.includes(item.ParagraphId);
-        } else {
-            let lessonParas = (paragraph as Paragraph[]).filter(p => p.LessonId === targetId).map(p => p.id);
-            return item.ParagraphId && lessonParas.includes(item.ParagraphId);
-        }
-    });
-
-    return pickWinner(candidates.map(item => {
-        const { score, tagCount } = calculateScore(item.id, 'AnalogyId', tagRelatorAnalogy, profile, item.createdAt);
-        return { item, score, tagCount };
-    }));
-}
 
 export async function ChangeToBestAnalogy(currentId: string, userId: string): Promise<Analogy | null> {
     const curr = (analogy as Analogy[]).find(a => a.id === currentId);
@@ -156,11 +134,50 @@ export async function ChangeToBestAnalogy(currentId: string, userId: string): Pr
 // 2. PARAGRAPH MODULE
 // ==========================================
 
+// ==========================================
+// 1. ANALOGY MODULE
+// ==========================================
+
+export async function GetBestAnalogy(targetId: string, type: 'paragraph' | 'lesson', userId: string): Promise<Analogy | null> {
+    if (!targetId || !userId) return null;
+    const profile = (tagUser as UserTag[]).filter(u => u.UserId === userId);
+    
+    // Filter out flagged, disliked, or skipped
+    const blocked = (userAnalogy as UserAnalogy[]).filter(ua => ua.UserId === userId && (ua.flaged || ua.status === 'disliked' || ua.skiped)).map(ua => ua.AnalogyId);
+
+    const candidates = (analogy as Analogy[]).filter(item => {
+        if (blocked.includes(item.id)) return false;
+
+        if (type === 'paragraph') {
+            let masterId = (realParagraph as RealParagraph[]).find(rp => rp.id === targetId)?.MasterParagraphId 
+                        || (paragraph as Paragraph[]).find(p => p.id === targetId)?.MasterParagraphId;
+            let siblingParas = (paragraph as Paragraph[]).filter(p => p.MasterParagraphId === masterId).map(p => p.id);
+            return item.ParagraphId && siblingParas.includes(item.ParagraphId);
+        } else {
+            let lessonParas = (paragraph as Paragraph[]).filter(p => p.LessonId === targetId).map(p => p.id);
+            return item.ParagraphId && lessonParas.includes(item.ParagraphId);
+        }
+    });
+
+    return pickWinner(candidates.map(item => {
+        const { score, tagCount } = calculateScore(item.id, 'AnalogyId', tagRelatorAnalogy, profile, item.createdAt);
+        return { item, score, tagCount };
+    }));
+}
+
+// ... Analogy ChangeToBest is already correct in your snippet ...
+
+// ==========================================
+// 2. PARAGRAPH MODULE
+// ==========================================
+
 export async function GetBestParagraph(realParagraphId: string, userId: string): Promise<Paragraph | null> {
     const base = (realParagraph as RealParagraph[]).find(p => p.id === realParagraphId);
     if (!base) return null;
     
-    const candidates = (paragraph as Paragraph[]).filter(p => p.MasterParagraphId === base.MasterParagraphId);
+    const blocked = (userParagraph as UserParagraph[]).filter(up => up.UserId === userId && up.skiped).map(up => up.ParagraphId);
+
+    const candidates = (paragraph as Paragraph[]).filter(p => p.MasterParagraphId === base.MasterParagraphId && !blocked.includes(p.id));
     return pickWinner(candidates.map(item => {
         const { score, tagCount } = calculateScore(item.id, 'ParagraphId', tagRelatorParagraph, (tagUser as UserTag[]).filter(u => u.UserId === userId), item.createdAt);
         return { item, score, tagCount };
@@ -172,7 +189,9 @@ export async function ChangeToBestParagraph(currentId: string, userId: string): 
                 || (paragraph as Paragraph[]).find(p => p.id === currentId)?.MasterParagraphId;
     if (!masterId) return null;
 
-    const candidates = (paragraph as Paragraph[]).filter(p => p.MasterParagraphId === masterId && p.id !== currentId);
+    const blocked = (userParagraph as UserParagraph[]).filter(up => up.UserId === userId && up.skiped).map(up => up.ParagraphId);
+
+    const candidates = (paragraph as Paragraph[]).filter(p => p.MasterParagraphId === masterId && p.id !== currentId && !blocked.includes(p.id));
     const rejTags = (tagRelatorParagraph as TagRelatorParagraph[]).filter(r => r.ParagraphId === currentId).map(r => r.TagId);
     
     return pickWinner(candidates.map(item => {
@@ -186,7 +205,9 @@ export async function ChangeToBestParagraph(currentId: string, userId: string): 
 // ==========================================
 
 export async function GetBestSummery(lessonId: string, userId: string): Promise<Summery | null> {
-    const candidates = (summery as Summery[]).filter(s => s.LessonId === lessonId);
+    const blocked = (userSummery as UserSummery[]).filter(us => us.UserId === userId && us.skiped).map(us => us.SummeryId);
+    
+    const candidates = (summery as Summery[]).filter(s => s.LessonId === lessonId && !blocked.includes(s.id));
     return pickWinner(candidates.map(item => {
         const { score, tagCount } = calculateScore(item.id, 'SummeryId', tagRelatorSummery, (tagUser as UserTag[]).filter(u => u.UserId === userId), item.createdAt);
         return { item, score, tagCount };
@@ -196,7 +217,10 @@ export async function GetBestSummery(lessonId: string, userId: string): Promise<
 export async function ChangeToBestSummery(currentId: string, userId: string): Promise<Summery | null> {
     const curr = (summery as Summery[]).find(s => s.id === currentId);
     if (!curr) return null;
-    const candidates = (summery as Summery[]).filter(s => s.LessonId === curr.LessonId && s.id !== currentId);
+
+    const blocked = (userSummery as UserSummery[]).filter(us => us.UserId === userId && us.skiped).map(us => us.SummeryId);
+
+    const candidates = (summery as Summery[]).filter(s => s.LessonId === curr.LessonId && s.id !== currentId && !blocked.includes(s.id));
     const rejTags = (tagRelatorSummery as TagRelatorSummery[]).filter(r => r.SummeryId === currentId).map(r => r.TagId);
     
     return pickWinner(candidates.map(item => {
@@ -206,16 +230,16 @@ export async function ChangeToBestSummery(currentId: string, userId: string): Pr
 }
 
 // ==========================================
-// 4. KEYWORDS MODULE (BUG FIXED)
+// 4. KEYWORDS MODULE
 // ==========================================
 
 export async function GetBestKeyWord(keywordVariantId: string, userId: string): Promise<KeyWords | null> {
-    // FIX: The experiment passes the variant ID (e.g., k_0_0)
-    // We use it to find the DefinitionId, then search for siblings.
     const baseVariant = (keywords as KeyWords[]).find(k => k.id === keywordVariantId);
     if (!baseVariant) return null;
     
-    const candidates = (keywords as KeyWords[]).filter(k => k.DefinitionId === baseVariant.DefinitionId);
+    const blocked = (userKeyWords as UserKeyWords[]).filter(uk => uk.UserId === userId && uk.skiped).map(uk => uk.KeyWordsId);
+
+    const candidates = (keywords as KeyWords[]).filter(k => k.DefinitionId === baseVariant.DefinitionId && !blocked.includes(k.id));
     return pickWinner(candidates.map(item => {
         const { score, tagCount } = calculateScore(item.id, 'KeyWordsId', tagRelatorKeyWords, (tagUser as UserTag[]).filter(u => u.UserId === userId), item.createdAt);
         return { item, score, tagCount };
@@ -225,7 +249,10 @@ export async function GetBestKeyWord(keywordVariantId: string, userId: string): 
 export async function ChangeToBestKeyWord(currentId: string, userId: string): Promise<KeyWords | null> {
     const curr = (keywords as KeyWords[]).find(k => k.id === currentId);
     if (!curr) return null;
-    const candidates = (keywords as KeyWords[]).filter(k => k.DefinitionId === curr.DefinitionId && k.id !== currentId);
+
+    const blocked = (userKeyWords as UserKeyWords[]).filter(uk => uk.UserId === userId && uk.skiped).map(uk => uk.KeyWordsId);
+
+    const candidates = (keywords as KeyWords[]).filter(k => k.DefinitionId === curr.DefinitionId && k.id !== currentId && !blocked.includes(k.id));
     const rejTags = (tagRelatorKeyWords as TagRelatorKeyWords[]).filter(r => r.KeyWordsId === currentId).map(r => r.TagId);
     
     return pickWinner(candidates.map(item => {
@@ -239,7 +266,9 @@ export async function ChangeToBestKeyWord(currentId: string, userId: string): Pr
 // ==========================================
 
 export async function GetBestNote(lessonId: string, userId: string): Promise<Note | null> {
-    const candidates = (note as Note[]).filter(n => n.LessonId === lessonId);
+    const blocked = (userNote as UserNote[]).filter(un => un.UserId === userId && un.skiped).map(un => un.NoteId);
+
+    const candidates = (note as Note[]).filter(n => n.LessonId === lessonId && !blocked.includes(n.id));
     return pickWinner(candidates.map(item => {
         const { score, tagCount } = calculateScore(item.id, 'NoteId', tagRelatorNote, (tagUser as UserTag[]).filter(u => u.UserId === userId), item.createdAt);
         return { item, score, tagCount };
@@ -249,7 +278,10 @@ export async function GetBestNote(lessonId: string, userId: string): Promise<Not
 export async function ChangeToBestNote(currentId: string, userId: string): Promise<Note | null> {
     const curr = (note as Note[]).find(n => n.id === currentId);
     if (!curr) return null;
-    const candidates = (note as Note[]).filter(n => n.LessonId === curr.LessonId && n.id !== currentId);
+
+    const blocked = (userNote as UserNote[]).filter(un => un.UserId === userId && un.skiped).map(un => un.NoteId);
+
+    const candidates = (note as Note[]).filter(n => n.LessonId === curr.LessonId && n.id !== currentId && !blocked.includes(n.id));
     const rejTags = (tagRelatorNote as TagRelatorNote[]).filter(r => r.NoteId === currentId).map(r => r.TagId);
     
     return pickWinner(candidates.map(item => {

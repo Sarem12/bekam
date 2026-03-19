@@ -23,6 +23,7 @@ import userAnalogyi from "./database/userAnalogy.json";
 import userSummeryi from "./database/userSummery.json";
 import userKeyWordsi from "./database/userKeyWords.json";
 import userNotei from "./database/userNote.json";
+import userParagraphi from "./database/userParagraph.json";
 
 // --- TAG RELATOR IMPORTS (Separate files for performance) ---
 import tagRelatorAnalogyi from "./database/tagRelatorAnalogy.json";
@@ -72,6 +73,7 @@ export const { data: userAnalogy, out: userAnalogyOut } = Create(userAnalogyi);
 export const { data: userSummery, out: userSummeryOut } = Create(userSummeryi);
 export const { data: userKeyWords, out: userKeyWordsOut } = Create(userKeyWordsi);
 export const { data: userNote, out: userNoteOut } = Create(userNotei);
+export const { data: userParagraph, out: userParagraphOut } = Create(userParagraphi);
 
 // --- PERFORMANCE RELATORS ---
 export const { data: tagRelatorAnalogy, out: tagRelatorAnalogyOut } = Create(tagRelatorAnalogyi);
