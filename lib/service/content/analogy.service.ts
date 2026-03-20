@@ -1,153 +1,172 @@
 import { ChangeToBestAnalogy, GetBestAnalogy } from "@/lib/analyzer";
 import { generateContent } from "@/lib/gemini";
-import { Lesson, stringifiedContent,User } from "@/lib/types";
-import { stringifyLesson, stringifyDefaultParagraph, stringifyUnit } from "@/lib/stringifiers";
-import { userOut,user, lesson,analogy as analogyd,analogyDefault,
-    analogyDefaultOut,analogyOut,
-    userAnalogy,
-    userAnalogyOut,
-    tag,
-    universalTag,
-    tagRelatorAnalogy,
-    tagRelatorAnalogyOut,
-    paragraph,
-    masterParagraph
+import { 
+    Lesson, RealParagraph, stringifiedContent, User,
+    Analogy, DefaultAnalogy, Tag, TagRelatorAnalogy, UserAnalogy
+} from "@/lib/types";
+
+import { 
+    user, lesson, realParagraph,
+    analogy as analogyd, analogyOut,
+    analogyDefault, analogyDefaultOut,
+    userAnalogy, userAnalogyOut,
+    tag, tagRelatorAnalogy, tagRelatorAnalogyOut
 } from "@/datarelated/data";
-import { Analogy, DefaultAnalogy,DefaultParagraph,Tag,TagRelatorAnalogy,UserAnalogy } from "@/lib/types";
+
+import { stringifyLesson, stringifyDefaultParagraph } from "@/lib/stringifiers";
+
+/**
+ * GET ANALOGY
+ */
 export async function GetAnalogy(UserId: string, contentId: string, type: 'lesson' | 'paragraph') {
-    const analogy = await GetBestAnalogy(UserId, type, contentId);
-    
-    if (analogy === null) {
-        const CurrentUser = user.find(u => u.id === UserId) as User;
-        if (!CurrentUser) return { error: "User not found" };
+    const analogyRecord = await GetBestAnalogy(UserId, type, contentId);
 
-        let stringified: stringifiedContent;
-        let contentIdKey: "lessonId" | "ParagraphId";
+    if (analogyRecord !== null) {
+        const a = (analogyd as Analogy[]).find(x => x.id === analogyRecord.id);
+        if (a) {
+            a.views += 1;
 
-        // 1. Prepare Content Based on Type
-        if (type === 'lesson') {
-            const CurrentLesson = (lesson as Lesson[]).find(l => l.id === contentId);
-            if (!CurrentLesson) return { error: "Lesson not found" };
-            stringified = stringifyLesson(CurrentLesson);
-            contentIdKey = "lessonId";
-        } else  {
-            const CurrentParagraph = (masterParagraph as DefaultParagraph[]).find(p => p.id === contentId);
-            if (!CurrentParagraph) return { error: "Paragraph not found" };
-            stringified = stringifyDefaultParagraph(CurrentParagraph);
-            contentIdKey = "ParagraphId";
+            const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === a.id);
+            if (da) da.views += 1;
+
+            analogyOut(analogyd);
+            analogyDefaultOut(analogyDefault);
         }
-
-        // 2. Generate AI Content
-        const response = await generateContent({
-            requestType: 'analogy',
-            user: CurrentUser,
-            target: stringified
-        });
-
-        if (response.error) return response;
-
-        // 3. Setup IDs
-        const timestamp = Date.now();
-        const analogyId = `ana-${timestamp}`;
-        const defaultanalogyId = `defana-${timestamp}`;
-
-        // 4. Map Tags Safely (Prevents crashes if AI hallucinated a tag name)
-        const analogytags: TagRelatorAnalogy[] = (response.tagsUsed || [])
-            .map((ta: string) => {
-                const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
-                if (!specificTag) return null;
-                return {
-                    id: `tagrel-${timestamp}-${Math.random()}`,
-                    TagId: specificTag.id,
-                    AnalogyId: analogyId,
-                    likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
-                };
-            })
-            .filter(Boolean) as TagRelatorAnalogy[];
-
-        // 5. Create Objects
-        const newAnalogy: Analogy = {
-            id: analogyId,
-            content: response.content,
-            logic: response.logic,
-            [contentIdKey]: contentId,
-            likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-            defaultAnalogyId: defaultanalogyId,
-            createdAt: new Date().toISOString(),
-        } as Analogy;
-
-        const defaultAnalogy: DefaultAnalogy = {
-            id: defaultanalogyId,
-            content: response.content,
-            logic: response.logic,
-            [contentIdKey]: contentId,
-            likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-            AnalogyId: analogyId,
-            UserId: UserId,
-            createdAt: new Date().toISOString(),
-            order: 0
-        } as DefaultAnalogy;
-
-        const useranalogy: UserAnalogy = {
-            id: `userana-${timestamp}`,
-            UserId: UserId,
-            AnalogyId: analogyId,
-            flaged: false,
-            onuse: true,
-            status: 'neutral',
-            lastSeenAt: new Date().toISOString(),
-            skiped: false
-        };
-
-        // 6. Persistence
-        analogyd.push(newAnalogy);
-        analogyDefault.push(defaultAnalogy);
-        userAnalogy.push(useranalogy);
-        tagRelatorAnalogy.push(...analogytags);
-
-        analogyOut(analogyd);
-        analogyDefaultOut(analogyDefault);
-        userAnalogyOut(userAnalogy);
-        tagRelatorAnalogyOut(tagRelatorAnalogy);
-
-        return response; 
-    } 
-
-    return analogy;
-
-}
-export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
-    const defAnalogyRecord = (analogyDefault as DefaultAnalogy[]).find(da => da.id === DefaultAnalogyId);
-    if (!defAnalogyRecord) return { error: "Default Analogy record not found" };
-
-    // 1. Mark the current one as skipped immediately using the reference
-    const currentUA = (userAnalogy as UserAnalogy[]).find(ua => 
-        ua.UserId === userId && 
-        ua.AnalogyId === defAnalogyRecord.AnalogyId
-    );
-    
-    if (currentUA) {
-        currentUA.skiped = true;
-        currentUA.onuse = false; // Optional: mark it as no longer the active one
+        return { content: analogyRecord.content, id: analogyRecord.id };
     }
 
-    // 2. Try to find an existing better one in the database first
-    const analogy = await ChangeToBestAnalogy(DefaultAnalogyId, userId);
-  
+    const CurrentUser = user.find(u => u.id === UserId) as User;
+    if (!CurrentUser) return { error: "User not found" };
 
+    let stringified: stringifiedContent;
+    let contentIdKey: "LessonId" | "ParagraphId";
 
-    // 3. If ChangeToBestAnalogy returns a match, we just return that
-    if (analogy !== null) return analogy;
+    if (type === 'lesson') {
+        const CurrentLesson = (lesson as Lesson[]).find(l => l.id === contentId);
+        if (!CurrentLesson) return { error: "Lesson not found" };
+        stringified = stringifyLesson(CurrentLesson);
+        contentIdKey = "LessonId";
+    } else {
+        const CurrentParagraph = (realParagraph as RealParagraph[]).find(p => p.id === contentId);
+        if (!CurrentParagraph) return { error: "Paragraph not found" };
+        stringified = stringifyDefaultParagraph(CurrentParagraph);
+        contentIdKey = "ParagraphId";
+    }
 
-    // 4. If no better one exists, generate a NEW one via AI
+    const response = await generateContent({
+        requestType: 'analogy',
+        user: CurrentUser,
+        target: stringified
+    });
+
+    if (response.error) throw new Error(response.error);
+
+    const timestamp = Date.now();
+    const analogyId = `ana-${timestamp}`;
+    const defaultAnalogyId = `defana-${timestamp}`;
+
+    // TAGS
+    const analogyTags: TagRelatorAnalogy[] = (response.tagsUsed || [])
+        .map((ta: string) => {
+            const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
+            if (!specificTag) return null;
+            return {
+                id: `tagrel-a-${timestamp}-${Math.random()}`,
+                TagId: specificTag.id,
+                AnalogyId: analogyId,
+                likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
+            };
+        })
+        .filter(Boolean) as TagRelatorAnalogy[];
+
+    const newAnalogy: Analogy = {
+        id: analogyId,
+        content: response.content,
+        logic: response.logic,
+        [contentIdKey]: contentId,
+        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
+        defaultAnalogyId: defaultAnalogyId,
+        createdAt: new Date().toISOString(),
+    };
+
+    const defaultAnalogy: DefaultAnalogy = {
+        id: defaultAnalogyId,
+        content: response.content,
+        logic: response.logic,
+        [contentIdKey]: contentId,
+        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
+        AnalogyId: analogyId,
+        UserId: UserId,
+        createdAt: new Date().toISOString(),
+        order: 0
+    };
+
+    const useranalogy: UserAnalogy = {
+        id: `userana-${timestamp}`,
+        UserId,
+        AnalogyId: analogyId,
+        flaged: false,
+        onuse: true,
+        status: 'neutral',
+        lastSeenAt: new Date().toISOString(),
+        skiped: false
+    };
+
+    analogyd.push(newAnalogy);
+    analogyDefault.push(defaultAnalogy);
+    userAnalogy.push(useranalogy);
+    tagRelatorAnalogy.push(...analogyTags);
+
+    analogyOut(analogyd);
+    analogyDefaultOut(analogyDefault);
+    userAnalogyOut(userAnalogy);
+    tagRelatorAnalogyOut(tagRelatorAnalogy);
+
+    return { ...response, id: analogyId };
+}
+
+/**
+ * CHANGE ANALOGY
+ */
+export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
+    const def = (analogyDefault as DefaultAnalogy[]).find(d => d.id === DefaultAnalogyId);
+    if (!def) return { error: "Default Analogy not found" };
+
+    // 1. mark current as skipped
+    const current = (userAnalogy as UserAnalogy[]).find(u => 
+        u.UserId === userId && u.AnalogyId === def.AnalogyId
+    );
+
+    if (current) {
+        current.skiped = true;
+        current.onuse = false;
+        userAnalogyOut(userAnalogy);
+    }
+
+    // 2. try DB alternative
+    const best = await ChangeToBestAnalogy(DefaultAnalogyId, userId);
+
+    if (best !== null && best.id !== def.AnalogyId) {
+        def.AnalogyId = best.id;
+        def.content = best.content;
+        def.likes = best.likes;
+        def.dislikes = best.dislikes;
+        def.views = best.views + 1;
+        def.usage = best.usage;
+        def.flags = best.flags;
+
+        analogyDefaultOut(analogyDefault);
+        return best;
+    }
+
+    // 3. 🔥 NO reuse → generate directly
     const CurrentUser = user.find(u => u.id === userId) as User;
     if (!CurrentUser) return { error: "User not found" };
 
-    // Determine type based on what ID exists in the default record
-    const type = defAnalogyRecord.lessonId ? 'lesson' : 'paragraph';
-    const contentId = (defAnalogyRecord.lessonId || defAnalogyRecord.ParagraphId) as string;
+    const type = def.lessonId ? 'lesson' : 'paragraph';
+    const contentId = (def.lessonId || def.ParagraphId) as string;
 
-    let stringified: any;
+    let stringified: stringifiedContent;
     let contentIdKey: "lessonId" | "ParagraphId";
 
     if (type === 'lesson') {
@@ -156,7 +175,7 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
         stringified = stringifyLesson(CurrentLesson);
         contentIdKey = "lessonId";
     } else {
-        const CurrentParagraph = (masterParagraph as DefaultParagraph[]).find(p => p.id === contentId);
+        const CurrentParagraph = (realParagraph as RealParagraph[]).find(p => p.id === contentId);
         if (!CurrentParagraph) return { error: "Paragraph not found" };
         stringified = stringifyDefaultParagraph(CurrentParagraph);
         contentIdKey = "ParagraphId";
@@ -172,21 +191,6 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
 
     const timestamp = Date.now();
     const analogyId = `ana-${timestamp}`;
-    const newDefaultId = `defana-${timestamp}`;
-
-    // Tag Mapping
-    const analogytags: TagRelatorAnalogy[] = (response.tagsUsed || [])
-        .map((ta: string) => {
-            const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
-            if (!specificTag) return null;
-            return {
-                id: `tagrel-${timestamp}-${Math.random()}`,
-                TagId: specificTag.id,
-                AnalogyId: analogyId,
-                likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
-            };
-        })
-        .filter(Boolean) as TagRelatorAnalogy[];
 
     const newAnalogy: Analogy = {
         id: analogyId,
@@ -194,21 +198,9 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
         logic: response.logic,
         [contentIdKey]: contentId,
         likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        defaultAnalogyId: newDefaultId,
+        defaultAnalogyId: DefaultAnalogyId,
         createdAt: new Date().toISOString(),
     } as Analogy;
-
-    const newDefaultAnalogy: DefaultAnalogy = {
-        id: newDefaultId,
-        content: response.content,
-        logic: response.logic,
-        [contentIdKey]: contentId,
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        AnalogyId: analogyId,
-        UserId: userId,
-        createdAt: new Date().toISOString(),
-        order: (defAnalogyRecord.order || 0) + 1 // Increment order for cycling
-    } as DefaultAnalogy;
 
     const useranalogy: UserAnalogy = {
         id: `userana-${timestamp}`,
@@ -221,113 +213,120 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
         skiped: false
     };
 
-    // Save
+    def.AnalogyId = analogyId;
+    def.content = response.content;
+    def.likes = 0;
+    def.dislikes = 0;
+    def.views = 1;
+    def.usage = 1;
+    def.flags = 0;
+
     analogyd.push(newAnalogy);
-    analogyDefault.push(newDefaultAnalogy);
     userAnalogy.push(useranalogy);
-    tagRelatorAnalogy.push(...analogytags);
 
     analogyOut(analogyd);
     analogyDefaultOut(analogyDefault);
     userAnalogyOut(userAnalogy);
-    tagRelatorAnalogyOut(tagRelatorAnalogy);
 
     return response;
 }
-export async function LikeEventAnalogy(UserId: string, AnalogyId: string,) {
-const target:UserAnalogy|undefined = (userAnalogy as UserAnalogy[]).find(ua => ua.UserId === UserId && ua.AnalogyId === AnalogyId);
-if (!target) return { error: "UserAnalogy not found" };
-const wasdisliked = target.status === 'disliked';
-if (target.status !== 'liked'){
-target.status = 'liked';
-const analogy = (analogyd as Analogy[]).find(a => a.id === AnalogyId);
-if (analogy) {analogy.likes += 1; if (wasdisliked) analogy.dislikes = Math.max(0, analogy.dislikes - 1);}
-const defaultAnalogy = (analogyDefault as DefaultAnalogy[]).find(da => da.AnalogyId === AnalogyId);
-if (defaultAnalogy) {defaultAnalogy.likes += 1; if (wasdisliked) defaultAnalogy.dislikes = Math.max(0, defaultAnalogy.dislikes - 1);}
-const tagRelations = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(tra => tra.AnalogyId === AnalogyId);
-tagRelations.forEach(tr => {tr.likes += 1; if (wasdisliked) tr.dislikes = Math.max(0, tr.dislikes - 1);});
-}
-else{
-target.status = 'neutral';
-const analogy = (analogyd as Analogy[]).find(a => a.id === AnalogyId);
-if (analogy) analogy.likes -= 1; 
-const defaultAnalogy = (analogyDefault as DefaultAnalogy[]).find(da => da.AnalogyId === AnalogyId);
-if (defaultAnalogy) defaultAnalogy.likes -= 1;
-const tagRelations = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(tra => tra.AnalogyId === AnalogyId);
-tagRelations.forEach(tr => tr.likes -= 1);
-}
-userAnalogyOut(userAnalogy);
-analogyOut(analogyd);
-analogyDefaultOut(analogyDefault);
-tagRelatorAnalogyOut(tagRelatorAnalogy);
-return { success: true,
-          newStatus: target.status,
-          likeCount: (analogyd as Analogy[]).find(a => a.id === AnalogyId)?.likes || 0,
-          dislikeCount: (analogyd as Analogy[]).find(a => a.id === AnalogyId)?.dislikes || 0,
-          
- };
 
-}                                                                             
+/**
+ * LIKE EVENT
+ */
+export async function LikeEventAnalogy(UserId: string, AnalogyId: string) {
+    const target = (userAnalogy as UserAnalogy[]).find(u => u.UserId === UserId && u.AnalogyId === AnalogyId);
+    if (!target) return { error: "UserAnalogy not found" };
+
+    const wasdisliked = target.status === 'disliked';
+    const isLiked = target.status === 'liked';
+
+    target.status = isLiked ? 'neutral' : 'liked';
+    const change = isLiked ? -1 : 1;
+
+    const a = (analogyd as Analogy[]).find(x => x.id === AnalogyId);
+    if (a) {
+        a.likes += change;
+        if (!isLiked && wasdisliked) a.dislikes = Math.max(0, a.dislikes - 1);
+    }
+
+    const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === AnalogyId);
+    if (da) {
+        da.likes += change;
+        if (!isLiked && wasdisliked) da.dislikes = Math.max(0, da.dislikes - 1);
+    }
+
+    const tags = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(t => t.AnalogyId === AnalogyId);
+    tags.forEach(t => {
+        t.likes += change;
+        if (!isLiked && wasdisliked) t.dislikes = Math.max(0, t.dislikes - 1);
+    });
+
+    analogyOut(analogyd);
+    analogyDefaultOut(analogyDefault);
+    userAnalogyOut(userAnalogy);
+    tagRelatorAnalogyOut(tagRelatorAnalogy);
+
+    return { success: true, newStatus: target.status };
+}
+
+/**
+ * DISLIKE EVENT
+ */
 export async function DislikeEventAnalogy(UserId: string, AnalogyId: string) {
-    const target: UserAnalogy | undefined = (userAnalogy as UserAnalogy[]).find(ua => ua.UserId === UserId && ua.AnalogyId === AnalogyId);
+    const target = (userAnalogy as UserAnalogy[]).find(u => u.UserId === UserId && u.AnalogyId === AnalogyId);
     if (!target) return { error: "UserAnalogy not found" };
 
     const wasliked = target.status === 'liked';
+    const isDisliked = target.status === 'disliked';
 
-    if (target.status !== 'disliked') {
-        target.status = 'disliked';
-        const analogy = (analogyd as Analogy[]).find(a => a.id === AnalogyId);
-        if (analogy) {
-            analogy.dislikes += 1;
-            if (wasliked) analogy.likes = Math.max(0, analogy.likes - 1);
-        }
-        const defaultAnalogy = (analogyDefault as DefaultAnalogy[]).find(da => da.AnalogyId === AnalogyId);
-        if (defaultAnalogy) {
-            defaultAnalogy.dislikes += 1;
-            if (wasliked) defaultAnalogy.likes = Math.max(0, defaultAnalogy.likes - 1);
-        }
-        const tagRelations = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(tra => tra.AnalogyId === AnalogyId);
-        tagRelations.forEach(tr => {
-            tr.dislikes += 1;
-            if (wasliked) tr.likes = Math.max(0, tr.likes - 1);
-        });
-    } else {
-        target.status = 'neutral';
-        const analogy = (analogyd as Analogy[]).find(a => a.id === AnalogyId);
-        if (analogy) analogy.dislikes = Math.max(0, analogy.dislikes - 1);
-        const defaultAnalogy = (analogyDefault as DefaultAnalogy[]).find(da => da.AnalogyId === AnalogyId);
-        if (defaultAnalogy) defaultAnalogy.dislikes = Math.max(0, defaultAnalogy.dislikes - 1);
-        const tagRelations = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(tra => tra.AnalogyId === AnalogyId);
-        tagRelations.forEach(tr => tr.dislikes = Math.max(0, tr.dislikes - 1));
+    target.status = isDisliked ? 'neutral' : 'disliked';
+    const change = isDisliked ? -1 : 1;
+
+    const a = (analogyd as Analogy[]).find(x => x.id === AnalogyId);
+    if (a) {
+        a.dislikes += change;
+        if (!isDisliked && wasliked) a.likes = Math.max(0, a.likes - 1);
     }
+
+    const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === AnalogyId);
+    if (da) {
+        da.dislikes += change;
+        if (!isDisliked && wasliked) da.likes = Math.max(0, da.likes - 1);
+    }
+
+    const tags = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(t => t.AnalogyId === AnalogyId);
+    tags.forEach(t => {
+        t.dislikes += change;
+        if (!isDisliked && wasliked) t.likes = Math.max(0, t.likes - 1);
+    });
 
     userAnalogyOut(userAnalogy);
     analogyOut(analogyd);
     analogyDefaultOut(analogyDefault);
     tagRelatorAnalogyOut(tagRelatorAnalogy);
 
-    return {
-        success: true,
-        newStatus: target.status,
-        likeCount: (analogyd as Analogy[]).find(a => a.id === AnalogyId)?.likes || 0,
-        dislikeCount: (analogyd as Analogy[]).find(a => a.id === AnalogyId)?.dislikes || 0,
-    };
+    return { success: true, newStatus: target.status };
 }
+
+/**
+ * FLAG EVENT
+ */
 export async function FlagEventAnalogy(UserId: string, AnalogyId: string) {
-    const target: UserAnalogy | undefined = (userAnalogy as UserAnalogy[]).find(ua => ua.UserId === UserId && ua.AnalogyId === AnalogyId);
+    const target = (userAnalogy as UserAnalogy[]).find(u => u.UserId === UserId && u.AnalogyId === AnalogyId);
     if (!target) return { error: "UserAnalogy not found" };
 
     target.flaged = !target.flaged;
     const change = target.flaged ? 1 : -1;
 
-    const analogy = (analogyd as Analogy[]).find(a => a.id === AnalogyId);
-    if (analogy) analogy.flags = Math.max(0, analogy.flags + change);
+    const a = (analogyd as Analogy[]).find(x => x.id === AnalogyId);
+    if (a) a.flags = Math.max(0, a.flags + change);
 
-    const defaultAnalogy = (analogyDefault as DefaultAnalogy[]).find(da => da.AnalogyId === AnalogyId);
-    if (defaultAnalogy) defaultAnalogy.flags = Math.max(0, defaultAnalogy.flags + change);
+    const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === AnalogyId);
+    if (da) da.flags = Math.max(0, da.flags + change);
 
-    const tagRelations = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(tra => tra.AnalogyId === AnalogyId);
-    tagRelations.forEach(tr => tr.flags = Math.max(0, tr.flags + change));
+    const tags = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(t => t.AnalogyId === AnalogyId);
+    tags.forEach(t => t.flags = Math.max(0, t.flags + change));
 
     userAnalogyOut(userAnalogy);
     analogyOut(analogyd);
@@ -336,19 +335,3 @@ export async function FlagEventAnalogy(UserId: string, AnalogyId: string) {
 
     return { success: true, flagged: target.flaged };
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

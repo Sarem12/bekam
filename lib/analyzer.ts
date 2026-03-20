@@ -204,14 +204,19 @@ export async function ChangeToBestParagraph(currentId: string, userId: string): 
 // 3. SUMMERY MODULE
 // ==========================================
 
-export async function GetBestSummery(lessonId: string, userId: string): Promise<Summery | null> {
+export async function GetBestSummery(targetID: string, type: 'lesson' | 'unit', userId: string): Promise<Summery | null> {
     const blocked = (userSummery as UserSummery[]).filter(us => us.UserId === userId && us.skiped).map(us => us.SummeryId);
-    
-    const candidates = (summery as Summery[]).filter(s => s.LessonId === lessonId && !blocked.includes(s.id));
+    if (type === 'lesson') {     
+    const candidates = (summery as Summery[]).filter(s => s.LessonId === targetID && !blocked.includes(s.id));
     return pickWinner(candidates.map(item => {
         const { score, tagCount } = calculateScore(item.id, 'SummeryId', tagRelatorSummery, (tagUser as UserTag[]).filter(u => u.UserId === userId), item.createdAt);
         return { item, score, tagCount };
-    }));
+    }));} else {
+        const candidates = (summery as Summery[]).filter(s => s.UnitId === targetID && !blocked.includes(s.id));
+        return pickWinner(candidates.map(item => {
+            const { score, tagCount } = calculateScore(item.id, 'SummeryId', tagRelatorSummery, (tagUser as UserTag[]).filter(u => u.UserId === userId), item.createdAt);
+            return { item, score, tagCount };
+        }));}
 }
 
 export async function ChangeToBestSummery(currentId: string, userId: string): Promise<Summery | null> {
@@ -233,7 +238,7 @@ export async function ChangeToBestSummery(currentId: string, userId: string): Pr
 // 4. KEYWORDS MODULE
 // ==========================================
 
-export async function GetBestKeyWord(keywordVariantId: string, userId: string): Promise<KeyWords | null> {
+export async function GetBestKeyWord(keywordVariantId: string, type: 'lesson' | 'paragraph', userId: string): Promise<KeyWords | null> {
     const baseVariant = (keywords as KeyWords[]).find(k => k.id === keywordVariantId);
     if (!baseVariant) return null;
     

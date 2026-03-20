@@ -1,7 +1,7 @@
-import { Lesson, DefaultParagraph, stringifiedContent, Unit } from "./types";
-import { lessonOut,lesson,paragraph } from "@/datarelated/data";
+import { Lesson, DefaultParagraph, stringifiedContent, Unit, RealParagraph } from "./types";
+import { lessonOut,lesson,realParagraph } from "@/datarelated/data";
 export  function stringifyLesson(Lesson: Lesson,index:string = Lesson.index.toString(),depth: number = 0): stringifiedContent{
-    const paragraphs = (paragraph as DefaultParagraph[]).filter(p => p.LessonId === Lesson.id);
+    const paragraphs = (realParagraph as RealParagraph[]).filter(p => p.LessonId === Lesson.id);
     let text = `
        ${Lesson.title}\n` + paragraphs.map(p => p.content).join("\n");
        const sublessons = (lesson as Lesson[]).filter(l => l.ParentLessonId === Lesson.id);
@@ -22,6 +22,6 @@ export function stringifyUnit(unit: Unit): stringifiedContent {
     });
     return { content: text, depth: 10 };
 }
-export function stringifyDefaultParagraph(paragraph: DefaultParagraph):stringifiedContent {
+export function stringifyDefaultParagraph(paragraph: RealParagraph):stringifiedContent {
     return { content: paragraph.content, depth: 0 };
 }

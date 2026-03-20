@@ -135,7 +135,6 @@ export type Paragraph = {
     LessonId: string;
     likes: number; // Added
     dislikes: number; // Added
-    order: number;
     MasterParagraphId?: string;
     views: number;
     usage: number;
@@ -148,7 +147,7 @@ export type DefaultParagraph = {
     content: string;
     LessonId: string;
     order: number;
-    RealParagraphId?: string;
+    RealParagraphId: string;
     // Added for consistency
     likes: number;
     dislikes: number;
@@ -156,6 +155,8 @@ export type DefaultParagraph = {
     usage: number;
     flags: number;
     createdAt: string;
+    ParagraphId:string;
+    UserId: string;
 }
 
 export type UserParagraph = {
@@ -185,8 +186,8 @@ export type TagRelatorParagraph = {
 export type Summery = {
     id: string;
     content: string;
-    LessonId: string;
-    UnitId: string;
+    LessonId?: string;
+    UnitId?: string;
     likes: number;
     dislikes: number;
     DefaultSummeryId?: string;
@@ -240,14 +241,13 @@ export type KeyWord = {
     id: string;
     word: string;
     definition: string;
+    keyWordsId: string;
 }
 
 export type KeyWords = {
     id: string;
     lessonId?: string;
     ParagraphId?: string;
-    isCoreConcept: boolean;
-    DefinitionId?: string;
     likes: number; // Added
     dislikes: number; // Added
     views: number;
@@ -260,7 +260,6 @@ export type KeyWordDefault = {
     id: string;
     lessonId?: string;
     ParagraphId?: string;
-    isCoreConcept: boolean;
     UserId: string;
     order: number;
     // Added for consistency
@@ -322,6 +321,7 @@ export type NoteDefault = {
     usage: number;
     flags: number;
     createdAt: string;
+    NoteId:string
 }
 
 export type UserNote = {

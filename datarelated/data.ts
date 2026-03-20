@@ -14,6 +14,7 @@ import tagUseri from "./database/tagUser.json";
 import uniti from "./database/unit.json";
 import useri from "./database/user.json";
 import keywordi from "./database/keyWord.json";
+// This 'data' will now include views, usage, flags, and createdAt
 import keywordsi from "./database/keywords.json";
 import universalTagi from "./database/universalTag.json";
 import notei from "./database/note.json";
@@ -34,10 +35,10 @@ import tagRelatorKeyWordsi from "./database/tagRelatorKeyWords.json";
 import tagRelatorNotei from "./database/tagRelatorNote.json";
 
 import usertagi from "./database/userTag.json";
+import defaultSummeryi from "./database/defaultSummery.json";
 // --- FACTORY FUNCTION ---
 export function Create(inp: any) {
     return {
-        // This 'data' will now include views, usage, flags, and createdAt
         data: inp.data as Record<string, any>[], 
         out: (newData: any) => {
             try {
@@ -85,3 +86,4 @@ export const { data: tagRelatorNote, out: tagRelatorNoteOut } = Create(tagRelato
 export const { data: userTag, out: userTagOut } = Create(usertagi);
 
 export const { data: noteDefault, out: noteDefaultOut } = Create(noteDefaulti);
+export const { data: defaultSummery, out: defaultSummeryOut } = Create(defaultSummeryi);

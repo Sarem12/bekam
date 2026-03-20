@@ -1,187 +1,281 @@
 import { GetBestNote, ChangeToBestNote } from "@/lib/analyzer";
 import { generateContent } from "@/lib/gemini";
-import { Lesson, stringifiedContent, User, Note, NoteDefault, UserNote, TagRelatorNote, Tag } from "@/lib/types";
-import { stringifyLesson } from "@/lib/stringifiers";
 import { 
-    user, lesson, note, noteDefault, noteDefaultOut, noteOut, 
-    userNote, userNoteOut, tag, tagRelatorNote, tagRelatorNoteOut 
+    Note, UserNote, Lesson, User, Tag, TagRelatorNote, NoteDefault as DefaultNote 
+} from "@/lib/types";
+import { 
+    user, lesson, note as noted, noteOut, 
+    userNote, userNoteOut, tag, tagRelatorNote, tagRelatorNoteOut, 
+    noteDefault, noteDefaultOut 
 } from "@/datarelated/data";
+import { stringifyLesson } from "@/lib/stringifiers";
 
 /**
  * GET NOTE
- * Fetches the best note from the DB or generates a new one via AI if none meet the quality threshold.
+ * Retrieves the best existing note or generates a new one via Gemini.
  */
 export async function GetNote(UserId: string, lessonId: string) {
-    const bestNote = await GetBestNote(lessonId, UserId);
+    const noteRecord = await GetBestNote(UserId, lessonId);
     
-    if (bestNote === null) {
-        const CurrentUser = user.find(u => u.id === UserId) as User;
-        if (!CurrentUser) return { error: "User not found" };
+    if (noteRecord !== null) {
+        const n = (noted as Note[]).find(x => x.id === noteRecord.id);
+        if (n) {
+            n.views += 1;
+            const dn = (noteDefault as DefaultNote[]).find(d => d.NoteId === n.id);
+            if (dn) dn.views += 1;
+            
+            noteOut(noted);
+            noteDefaultOut(noteDefault);
+        }
+        return { content: noteRecord.content, id: noteRecord.id };
+    }
 
-        const CurrentLesson = (lesson as Lesson[]).find(l => l.id === lessonId);
-        if (!CurrentLesson) return { error: "Lesson not found" };
+    const CurrentUser = user.find(u => u.id === UserId) as User;
+    const CurrentLesson = (lesson as Lesson[]).find(l => l.id === lessonId);
+    if (!CurrentLesson || !CurrentUser) return { error: "User or Lesson not found" };
 
-        const stringified = stringifyLesson(CurrentLesson);
+    const response = await generateContent({
+        requestType: 'note',
+        user: CurrentUser,
+        target: stringifyLesson(CurrentLesson)
+    });
 
-        // Generate AI Content
-        const response = await generateContent({
-            requestType: 'note',
-            user: CurrentUser,
-            target: stringified
-        });
+    if (response.error) throw new Error(response.error);
 
-        if (response.error) return response;
+    const timestamp = Date.now();
+    const noteId = `note-${timestamp}`;
+    const defaultNoteId = `defnote-${timestamp}`;
 
-        const timestamp = Date.now();
-        const noteId = `note-${timestamp}`;
-        const defaultNoteId = `defnote-${timestamp}`;
+    // Map AI tags to system tags
+    const noteTags: TagRelatorNote[] = (response.tagsUsed || [])
+        .map((ta: string) => {
+            const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
+            if (!specificTag) return null;
+            return {
+                id: `tagrel-n-${timestamp}-${Math.random()}`,
+                TagId: specificTag.id,
+                NoteId: noteId,
+                likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
+            };
+        })
+        .filter(Boolean) as TagRelatorNote[];
 
-        // Map Tags
-        const noteTags: TagRelatorNote[] = (response.tagsUsed || [])
-            .map((ta: string) => {
-                const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
-                if (!specificTag) return null;
-                return {
-                    id: `tagrel-note-${timestamp}-${Math.random()}`,
-                    TagId: specificTag.id,
-                    NoteId: noteId,
-                    likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
-                };
-            })
-            .filter(Boolean) as TagRelatorNote[];
+    const newNote: Note = {
+        id: noteId,
+        content: response.content,
+        LessonId: lessonId,
+        UserId: UserId,
+        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
+        defaultNoteId: defaultNoteId,
+        createdAt: new Date().toISOString(),
+    } as Note;
 
-        const newNote: Note = {
-            id: noteId,
-            content: response.content,
-            UserId: UserId,
-            LessonId: lessonId,
-            likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-            createdAt: new Date().toISOString(),
-        } as Note;
+    const defaultNote: DefaultNote = {
+        id: defaultNoteId,
+        content: response.content,
+        LessonId: lessonId,
+        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
+        NoteId: noteId,
+        UserId: UserId,
+        createdAt: new Date().toISOString(),
+        
+    } as DefaultNote;
 
-        const newDefaultNote: NoteDefault = {
-            id: defaultNoteId,
-            content: response.content,
-            UserId: UserId,
-            LessonId: lessonId,
-            UnitId: CurrentLesson.unitId, // Logic for notes usually requires the unit context
-        } as NoteDefault;
+    const usernote: UserNote = {
+        id: `usernote-${timestamp}`,
+        UserId,
+        NoteId: noteId,
+        flaged: false,
+        onuse: true,
+        status: 'neutral',
+        lastSeenAt: new Date().toISOString(),
+        skiped: false
+    };
 
-        const userNoteEntry: UserNote = {
-            id: `usernote-${timestamp}`,
-            UserId: UserId,
-            NoteId: noteId,
-            flaged: false,
-            onuse: true,
-            status: 'neutral',
-            lastSeenAt: new Date().toISOString(),
-            skiped: false
-        };
+    noted.push(newNote);
+    noteDefault.push(defaultNote);
+    userNote.push(usernote);
+    tagRelatorNote.push(...noteTags);
 
-        // Persistence
-        note.push(newNote);
-        noteDefault.push(newDefaultNote);
-        userNote.push(userNoteEntry);
-        tagRelatorNote.push(...noteTags);
+    noteOut(noted);
+    noteDefaultOut(noteDefault);
+    userNoteOut(userNote);
+    tagRelatorNoteOut(tagRelatorNote);
 
-        noteOut(note);
-        noteDefaultOut(noteDefault);
-        userNoteOut(userNote);
-        tagRelatorNoteOut(tagRelatorNote);
-
-        return response; 
-    } 
-
-    return bestNote;
+    return { ...response, id: noteId };
 }
 
 /**
  * CHANGE NOTE
- * Marks current as skipped and rotates to the next best existing one, or generates new AI content.
+ * Marks current note as skipped and finds/generates an alternative.
  */
-export async function ChangeNote(currentNoteId: string, userId: string) {
-    // 1. Mark current as skipped
-    const currentUN = (userNote as UserNote[]).find(un => 
-        un.UserId === userId && un.NoteId === currentNoteId
+export async function ChangeNote(DefaultNoteId: string, userId: string) {
+    const defNoteRecord = (noteDefault as DefaultNote[]).find(dn => dn.id === DefaultNoteId);
+    if (!defNoteRecord) return { error: "Default Note record not found" };
+
+    // 1. mark current as skipped
+    const currentUA = (userNote as UserNote[]).find(ua => 
+        ua.UserId === userId && ua.NoteId === defNoteRecord.NoteId
     );
     
-    if (currentUN) {
-        currentUN.skiped = true;
-        currentUN.onuse = false;
+    if (currentUA) {
+        currentUA.skiped = true;
+        currentUA.onuse = false;
+        userNoteOut(userNote);
     }
 
-    // 2. Try to find existing
-    const existingBest = await ChangeToBestNote(currentNoteId, userId);
-    if (existingBest !== null) return existingBest;
+    // 2. try DB alternative
+    const note = await ChangeToBestNote(DefaultNoteId, userId);
+  
+    if (note !== null && note.id !== defNoteRecord.NoteId) {
+        defNoteRecord.NoteId = note.id;
+        defNoteRecord.content = note.content;
+        defNoteRecord.likes = note.likes;
+        defNoteRecord.dislikes = note.dislikes;
+        defNoteRecord.views = note.views + 1;
+        defNoteRecord.usage = note.usage;
+        defNoteRecord.flags = note.flags;
 
-    // 3. Generate New via AI
-    const noteRecord = (note as Note[]).find(n => n.id === currentNoteId);
-    if (!noteRecord) return { error: "Reference note not found" };
+        noteDefaultOut(noteDefault);
+        return note;
+    }
 
-    return await GetNote(userId, noteRecord.LessonId);
+    // 3. 🔥 generate NEW directly (NO GetNote reuse)
+    const CurrentUser = user.find(u => u.id === userId) as User;
+    const CurrentLesson = (lesson as Lesson[]).find(l => l.id === defNoteRecord.LessonId);
+
+    if (!CurrentUser || !CurrentLesson) return { error: "User or Lesson not found" };
+
+    const response = await generateContent({
+        requestType: 'note',
+        user: CurrentUser,
+        target: stringifyLesson(CurrentLesson)
+    });
+
+    if (response.error) return response;
+
+    const timestamp = Date.now();
+    const noteId = `note-${timestamp}`;
+
+    const newNote: Note = {
+        id: noteId,
+        content: response.content,
+        LessonId: defNoteRecord.LessonId,
+        UserId: userId,
+        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
+        defaultNoteId: DefaultNoteId,
+        createdAt: new Date().toISOString(),
+    } as Note;
+
+    const usernote: UserNote = {
+        id: `usernote-${timestamp}`,
+        UserId: userId,
+        NoteId: noteId,
+        flaged: false,
+        onuse: true,
+        status: 'neutral',
+        lastSeenAt: new Date().toISOString(),
+        skiped: false
+    };
+
+    defNoteRecord.NoteId = noteId;
+    defNoteRecord.content = response.content;
+    defNoteRecord.likes = 0;
+    defNoteRecord.dislikes = 0;
+    defNoteRecord.views = 1;
+    defNoteRecord.usage = 1;
+    defNoteRecord.flags = 0;
+
+    noted.push(newNote);
+    userNote.push(usernote);
+
+    noteOut(noted);
+    noteDefaultOut(noteDefault);
+    userNoteOut(userNote);
+
+    return response;
 }
-
 /**
- * EVENTS (Like / Dislike / Flag)
+ * LIKE EVENT
  */
 export async function LikeEventNote(UserId: string, NoteId: string) {
     const target = (userNote as UserNote[]).find(un => un.UserId === UserId && un.NoteId === NoteId);
     if (!target) return { error: "UserNote not found" };
 
-    const wasDisliked = target.status === 'disliked';
-    if (target.status !== 'liked') {
-        target.status = 'liked';
-        const n = (note as Note[]).find(x => x.id === NoteId);
-        if (n) {
-            n.likes += 1;
-            if (wasDisliked) n.dislikes = Math.max(0, n.dislikes - 1);
-        }
-        tagRelatorNote.filter(tr => tr.NoteId === NoteId).forEach(tr => {
-            tr.likes += 1;
-            if (wasDisliked) tr.dislikes = Math.max(0, tr.dislikes - 1);
-        });
-    } else {
-        target.status = 'neutral';
-        const n = (note as Note[]).find(x => x.id === NoteId);
-        if (n) n.likes = Math.max(0, n.likes - 1);
-        tagRelatorNote.filter(tr => tr.NoteId === NoteId).forEach(tr => tr.likes = Math.max(0, tr.likes - 1));
+    const wasdisliked = target.status === 'disliked';
+    const isLiked = target.status === 'liked';
+    
+    target.status = isLiked ? 'neutral' : 'liked';
+    const change = isLiked ? -1 : 1;
+
+    const n = (noted as Note[]).find(s => s.id === NoteId);
+    if (n) { 
+        n.likes += change; 
+        if (!isLiked && wasdisliked) n.dislikes = Math.max(0, n.dislikes - 1);
     }
 
+    const dn = (noteDefault as DefaultNote[]).find(d => d.NoteId === NoteId);
+    if (dn) {
+        dn.likes += change;
+        if (!isLiked && wasdisliked) dn.dislikes = Math.max(0, dn.dislikes - 1);
+    }
+
+    const tags = (tagRelatorNote as TagRelatorNote[]).filter(t => t.NoteId === NoteId);
+    tags.forEach(t => {
+        t.likes += change;
+        if (!isLiked && wasdisliked) t.dislikes = Math.max(0, t.dislikes - 1);
+    });
+
+    noteOut(noted);
+    noteDefaultOut(noteDefault);
     userNoteOut(userNote);
-    noteOut(note);
     tagRelatorNoteOut(tagRelatorNote);
+
     return { success: true, newStatus: target.status };
 }
 
+/**
+ * DISLIKE EVENT
+ */
 export async function DislikeEventNote(UserId: string, NoteId: string) {
     const target = (userNote as UserNote[]).find(un => un.UserId === UserId && un.NoteId === NoteId);
     if (!target) return { error: "UserNote not found" };
 
-    const wasLiked = target.status === 'liked';
-    if (target.status !== 'disliked') {
-        target.status = 'disliked';
-        const n = (note as Note[]).find(x => x.id === NoteId);
-        if (n) {
-            n.dislikes += 1;
-            if (wasLiked) n.likes = Math.max(0, n.likes - 1);
-        }
-        tagRelatorNote.filter(tr => tr.NoteId === NoteId).forEach(tr => {
-            tr.dislikes += 1;
-            if (wasLiked) tr.likes = Math.max(0, tr.likes - 1);
-        });
-    } else {
-        target.status = 'neutral';
-        const n = (note as Note[]).find(x => x.id === NoteId);
-        if (n) n.dislikes = Math.max(0, n.dislikes - 1);
-        tagRelatorNote.filter(tr => tr.NoteId === NoteId).forEach(tr => tr.dislikes = Math.max(0, tr.dislikes - 1));
+    const wasliked = target.status === 'liked';
+    const isDisliked = target.status === 'disliked';
+    
+    target.status = isDisliked ? 'neutral' : 'disliked';
+    const change = isDisliked ? -1 : 1;
+
+    const n = (noted as Note[]).find(s => s.id === NoteId);
+    if (n) { 
+        n.dislikes += change; 
+        if (!isDisliked && wasliked) n.likes = Math.max(0, n.likes - 1);
     }
 
+    const dn = (noteDefault as DefaultNote[]).find(d => d.NoteId === NoteId);
+    if (dn) {
+        dn.dislikes += change;
+        if (!isDisliked && wasliked) dn.likes = Math.max(0, dn.likes - 1);
+    }
+
+    const tags = (tagRelatorNote as TagRelatorNote[]).filter(t => t.NoteId === NoteId);
+    tags.forEach(t => {
+        t.dislikes += change;
+        if (!isDisliked && wasliked) t.likes = Math.max(0, t.likes - 1);
+    });
+
     userNoteOut(userNote);
-    noteOut(note);
+    noteOut(noted);
+    noteDefaultOut(noteDefault);
     tagRelatorNoteOut(tagRelatorNote);
+
     return { success: true, newStatus: target.status };
 }
 
+/**
+ * FLAG EVENT
+ */
 export async function FlagEventNote(UserId: string, NoteId: string) {
     const target = (userNote as UserNote[]).find(un => un.UserId === UserId && un.NoteId === NoteId);
     if (!target) return { error: "UserNote not found" };
@@ -189,13 +283,19 @@ export async function FlagEventNote(UserId: string, NoteId: string) {
     target.flaged = !target.flaged;
     const change = target.flaged ? 1 : -1;
 
-    const n = (note as Note[]).find(x => x.id === NoteId);
+    const n = (noted as Note[]).find(s => s.id === NoteId);
     if (n) n.flags = Math.max(0, n.flags + change);
 
-    tagRelatorNote.filter(tr => tr.NoteId === NoteId).forEach(tr => tr.flags = Math.max(0, tr.flags + change));
+    const dn = (noteDefault as DefaultNote[]).find(d => d.NoteId === NoteId);
+    if (dn) dn.flags = Math.max(0, dn.flags + change);
+
+    const tags = (tagRelatorNote as TagRelatorNote[]).filter(t => t.NoteId === NoteId);
+    tags.forEach(t => t.flags = Math.max(0, t.flags + change));
 
     userNoteOut(userNote);
-    noteOut(note);
+    noteOut(noted);
+    noteDefaultOut(noteDefault);
     tagRelatorNoteOut(tagRelatorNote);
+
     return { success: true, flagged: target.flaged };
 }
