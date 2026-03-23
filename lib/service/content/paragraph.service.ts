@@ -1,319 +1,274 @@
-import { ChangeToBestParagraph, GetBestParagraph } from "@/lib/analyzer";
+"use server"
+import { PrismaClient } from "@prisma/client";
 import { generateContent } from "@/lib/gemini";
-import { 
-    Lesson, RealParagraph, stringifiedContent, User,
-    Paragraph, DefaultParagraph, Tag, TagRelatorParagraph, UserParagraph
-} from "@/lib/types";
+import { stringifyDefaultParagraph } from "@/lib/stringifiers";
+import { GetBestParagraph, ChangeToBestParagraph } from "@/lib/analyzer";
 
-import { 
-    user, lesson, realParagraph,
-    paragraph as paragraphd, paragraphOut,
-    masterParagraph, masterParagraphOut,
-    userParagraph, userParagraphOut,
-    tag, tagRelatorParagraph, tagRelatorParagraphOut
-} from "@/datarelated/data";
+import {prisma} from "@/lib/prisma";
+export async function GetParagraph(UserId: string, RealParagraphId: string) {
+    // 1. Check if the user already has a preferred version in the DB
+    const paragraphRecord = await GetBestParagraph(RealParagraphId, UserId);
 
-import { stringifyLesson, stringifyDefaultParagraph } from "@/lib/stringifiers";
-
-export async function GetParagraph(UserId: string, ParagraphId: string) {
-    const paragraphRecord = await GetBestParagraph(UserId, ParagraphId);
-
-    if (paragraphRecord !== null) {
-        const p = (paragraphd as Paragraph[]).find(x => x.id === paragraphRecord.id);
-        if (p) {
-            p.views += 1;
-
-            const da = (masterParagraph as DefaultParagraph[]).find(d => d.ParagraphId === p.id);
-            if (da) da.views += 1;
-
-            paragraphOut(paragraphd);
-            masterParagraphOut(masterParagraph);
-        }
+    if (paragraphRecord) {
+        await prisma.paragraph.update({
+            where: { id: paragraphRecord.id },
+            data: { views: { increment: 1 } }
+        });
         return { content: paragraphRecord.content, id: paragraphRecord.id };
     }
 
-    const CurrentUser = user.find(u => u.id === UserId) as User;
+    // 2. Fetch User and the static Source Text
+    const CurrentUser = await prisma.user.findUnique({ where: { id: UserId } });
     if (!CurrentUser) return { error: "User not found" };
-     const CurrentParagraph = (realParagraph as RealParagraph[]).find(p => p.id === ParagraphId);
-     if (!CurrentParagraph) return { error: "Paragraph not found" };
-     const stringified = stringifyDefaultParagraph(CurrentParagraph);
 
-    
+    const source = await prisma.realParagraph.findUnique({ 
+        where: { id: RealParagraphId } 
+    });
+    if (!source) return { error: "RealParagraph source not found" };
 
+    // 3. Generate AI content based on the RealParagraph text
     const response = await generateContent({
         requestType: 'paragraph',
         user: CurrentUser,
-        target: stringified
+        target: stringifyDefaultParagraph(source)
     });
 
     if (response.error) throw new Error(response.error);
 
-    const timestamp = Date.now();
-    const paragrpahId = `par-${timestamp}`;
-    const defaultParagrpahId = `defpar-${timestamp}`;
+    // 4. Create the new AI Paragraph and link it to the RealParagraph
+    return await prisma.$transaction(async (tx) => {
+        // Find or create the Slot (DefaultParagraph)
+        let slot = await tx.defaultParagraph.findFirst({
+            where: { UserId, RealParagraphId }
+        });
 
-    // TAGS
-    const paragraphTags: TagRelatorParagraph[] = (response.tagsUsed || [])
-        .map((ta: string) => {
-            const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
-            if (!specificTag) return null;
-            return {
-                id: `tagrel-p-${timestamp}-${Math.random()}`,
-                TagId: specificTag.id,
-                ParagraphId: paragrpahId,
-                likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
-            };
-        })
-        .filter(Boolean) as TagRelatorParagraph[];
+        const newParagraph = await tx.paragraph.create({
+            data: {
+                content: response.content,
+                LessonId: source.LessonId,
+                MasterParagraphId: RealParagraphId, // Linking to RealParagraph
+                views: 1,
+                usage: 1,
+                tagsParagraph: {
+                    create: (response.tagsUsed as string[] || []).map(tagName => ({
+                        tag: {
+                            connectOrCreate: {
+                                where: { name: tagName },
+                                create: { name: tagName }
+                            }
+                        }
+                    }))
+                },
+                userActions: {
+                    create: { UserId, onuse: true }
+                }
+            }
+        });
 
-    const newParagraph: Paragraph = {
-        id: paragrpahId,
-        content: response.content,
-        LessonId: CurrentParagraph.LessonId,
-        
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        MasterParagraphId: defaultParagrpahId,
-        createdAt: new Date().toISOString(),
-        
-    };
+        if (slot) {
+            await tx.defaultParagraph.update({
+                where: { id: slot.id },
+                data: { ParagraphId: newParagraph.id }
+            });
+        } else {
+            await tx.defaultParagraph.create({
+                data: {
+                    UserId,
+                    ParagraphId: newParagraph.id,
+                    RealParagraphId,
+                    LessonId: source.LessonId,
+                    order: 0
+                }
+            });
+        }
 
-    const defaultParagraph: DefaultParagraph = {
-        id: defaultParagrpahId,
-        content: response.content,
-        LessonId: CurrentParagraph.LessonId,
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-       ParagraphId: paragrpahId,
-        UserId: UserId,
-        createdAt: new Date().toISOString(),
-        order: 0,
-        RealParagraphId: CurrentParagraph.id
-    };
-
-
-    const userparagraph: UserParagraph = {
-        id: `userpar-${timestamp}`,
-        UserId,
-        ParagraphId: paragrpahId,
-        flaged: false,
-        onuse: true,
-        status: 'neutral',
-        lastSeenAt: new Date().toISOString(),
-        skiped: false
-    };
-
-    paragraphd.push(newParagraph);
-    masterParagraph.push(defaultParagraph);
-    userParagraph.push(userparagraph);
-    tagRelatorParagraph.push(...paragraphTags);
-
-    paragraphOut(paragraphd);
-    masterParagraphOut(masterParagraph);
-    userParagraphOut(userParagraph);
-    tagRelatorParagraphOut(tagRelatorParagraph);
-
-    return { ...response, id: paragrpahId };
+        return { ...response, id: newParagraph.id };
+    });
 }
 
 /**
- * CHANGE PARAGRAPH
+ * CHANGE PARAGRAPH (Triggered when user clicks "Change" or "Re-generate")
  */
 export async function ChangeParagraph(DefaultParagraphId: string, userId: string) {
-    const def = (masterParagraph as DefaultParagraph[]).find(d => d.id === DefaultParagraphId);
-    if (!def) return { error: "Default Paragraph not found" };
+    const slot = await prisma.defaultParagraph.findUnique({ where: { id: DefaultParagraphId } });
+    if (!slot) return { error: "Slot not found" };
 
-    // 1. mark current as skipped
-    const current = (userParagraph as UserParagraph[]).find(u => 
-        u.UserId === userId && u.ParagraphId === def.ParagraphId
-    );
+    // 1. Mark current version as skipped for this user
+    await prisma.userParagraph.updateMany({
+        where: { UserId: userId, ParagraphId: slot.ParagraphId },
+        data: { skiped: true, onuse: false }
+    });
 
-    if (current) {
-        current.skiped = true;
-        current.onuse = false;
-        userParagraphOut(userParagraph);
-    }
-
-    // 2. try DB alternative
+    // 2. Try to find another high-scoring Paragraph linked to this RealParagraph
     const best = await ChangeToBestParagraph(DefaultParagraphId, userId);
-
-    if (best !== null && best.id !== def.ParagraphId) {
-        def.ParagraphId = best.id;
-        def.content = best.content;
-        def.likes = best.likes;
-        def.dislikes = best.dislikes;
-        def.views = best.views + 1;
-        def.usage = best.usage;
-        def.flags = best.flags;
-
-        masterParagraphOut(masterParagraph);
+    
+    if (best) {
+        await prisma.paragraph.update({
+            where: { id: best.id },
+            data: { views: { increment: 1 } }
+        });
+        await prisma.defaultParagraph.update({
+            where: { id: DefaultParagraphId },
+            data: { ParagraphId: best.id }
+        });
         return best;
     }
 
-    // 3. 🔥 NO reuse → generate directly
-    const CurrentUser = user.find(u => u.id === userId) as User;
-    if (!CurrentUser) return { error: "User not found" };
-
-    const contentId = (def.ParagraphId) as string;
-
-    let stringified: stringifiedContent;
-
-
-
-        const CurrentParagraph = (realParagraph as RealParagraph[]).find(p => p.id === contentId);
-        if (!CurrentParagraph) return { error: "Paragraph not found" };
-        stringified = stringifyDefaultParagraph(CurrentParagraph);
-    
+    // 3. If no good alternatives exist, generate a brand new one
+    const source = await prisma.realParagraph.findUnique({ where: { id: slot.RealParagraphId } });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!source || !user) return { error: "Source or User context missing" };
 
     const response = await generateContent({
         requestType: 'paragraph',
-        user: CurrentUser,
-        target: stringified
+        user: user,
+        target: stringifyDefaultParagraph(source)
     });
 
     if (response.error) return response;
 
-    const timestamp = Date.now();
-    const id= `par-${timestamp}`;
-
-    const newParagraph: Paragraph = {
-        id,
-        content: response.content,
-        logic: response.logic,
-        LessonId: def.LessonId,
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        defaultParagraphId: DefaultParagraphId,
-        createdAt: new Date().toISOString(),
-    } as Paragraph;
-
-    const userparagraph: UserParagraph = {
-        id: `userpar-${timestamp}`,
-        UserId: userId,
-        ParagraphId: id,
-        flaged: false,
-        onuse: true,
-        status: 'neutral',
-        lastSeenAt: new Date().toISOString(),
-        skiped: false
-    };
-
-    def.ParagraphId = id;
-    def.content = response.content;
-    def.likes = 0;
-    def.dislikes = 0;
-    def.views = 1;
-    def.usage = 1;
-    def.flags = 0;
-
-    paragraphd.push(newParagraph);
-    userParagraph.push(userparagraph);
-
-    paragraphOut(paragraphd);
-    masterParagraphOut(masterParagraph);
-    userParagraphOut(userParagraph);
-
-    return response;
-}
-
-/**
- * LIKE EVENT
- */
-export async function LikeEventParagraph(UserId: string, ParagraphId: string) {
-    const target = (userParagraph as UserParagraph[]).find(u => u.UserId === UserId && u.ParagraphId === ParagraphId);
-    if (!target) return { error: "UserParagraph not found" };
-
-    const wasdisliked = target.status === 'disliked';
-    const isLiked = target.status === 'liked';
-
-    target.status = isLiked ? 'neutral' : 'liked';
-    const change = isLiked ? -1 : 1;
-
-    const a = (paragraphd as Paragraph[]).find(x => x.id === ParagraphId);
-    if (a) {
-        a.likes += change;
-        if (!isLiked && wasdisliked) a.dislikes = Math.max(0, a.dislikes - 1);
-    }
-
-    const da = (masterParagraph as DefaultParagraph[]).find(d => d.ParagraphId === ParagraphId);
-    if (da) {
-        da.likes += change;
-        if (!isLiked && wasdisliked) da.dislikes = Math.max(0, da.dislikes - 1);
-    }
-
-    const tags = (tagRelatorParagraph as TagRelatorParagraph[]).filter(t => t.ParagraphId === ParagraphId);
-    tags.forEach(t => {
-        t.likes += change;
-        if (!isLiked && wasdisliked) t.dislikes = Math.max(0, t.dislikes - 1);
+    const created = await prisma.paragraph.create({
+        data: {
+            content: response.content,
+            LessonId: slot.LessonId,
+            MasterParagraphId: slot.RealParagraphId,
+            defaultParagraphId: DefaultParagraphId, // Links to the pool
+            userActions: { create: { UserId: userId, onuse: true } }
+        }
     });
 
-    paragraphOut(paragraphd);
-    masterParagraphOut(masterParagraph);
-    userParagraphOut(userParagraph);
-    tagRelatorParagraphOut(tagRelatorParagraph);
+    await prisma.defaultParagraph.update({
+        where: { id: DefaultParagraphId },
+        data: { ParagraphId: created.id }
+    });
 
-    return { success: true, newStatus: target.status };
+    return { ...response, id: created.id };
+}
+
+
+export async function LikeEventParagraph(UserId: string, ParagraphId: string) {
+    return await prisma.$transaction(async (tx) => {
+        // 1. Get the user's specific record for this AI paragraph
+        const userAction = await tx.userParagraph.findFirst({
+            where: { UserId, ParagraphId }
+        });
+
+        if (!userAction) {
+            // If it doesn't exist, create it so we can track the like
+            return await tx.userParagraph.create({
+                data: { UserId, ParagraphId, status: 'liked', onuse: true }
+            });
+        }
+
+        const isCurrentlyLiked = userAction.status === 'liked';
+        const wasDisliked = userAction.status === 'disliked';
+        
+        // Toggle: If already liked, go to neutral. Otherwise, go to liked.
+        const newStatus = isCurrentlyLiked ? 'neutral' : 'liked';
+        const change = isCurrentlyLiked ? -1 : 1;
+
+        // 2. Update User Action status
+        await tx.userParagraph.update({
+            where: { id: userAction.id },
+            data: { status: newStatus }
+        });
+
+        // 3. Update Global Paragraph Stats
+        await tx.paragraph.update({
+            where: { id: ParagraphId },
+            data: { 
+                likes: { increment: change },
+                // If we are moving from Disliked -> Liked, remove the dislike
+                dislikes: (wasDisliked && !isCurrentlyLiked) ? { decrement: 1 } : undefined
+            }
+        });
+
+        // 4. Update Tag Relators (So the "Scoring Brain" learns what tags are popular)
+        await tx.tagRelatorParagraph.updateMany({
+            where: { ParagraphId },
+            data: { 
+                likes: { increment: change },
+                dislikes: (wasDisliked && !isCurrentlyLiked) ? { decrement: 1 } : undefined
+            }
+        });
+
+        return { success: true, newStatus };
+    });
 }
 
 /**
- * DISLIKE EVENT
+ * DISLIKE EVENT FOR PARAGRAPH
  */
 export async function DislikeEventParagraph(UserId: string, ParagraphId: string) {
-    const target = (userParagraph as UserParagraph[]).find(u => u.UserId === UserId && u.ParagraphId === ParagraphId);
-    if (!target) return { error: "UserParagraph not found" };
+    return await prisma.$transaction(async (tx) => {
+        const userAction = await tx.userParagraph.findFirst({
+            where: { UserId, ParagraphId }
+        });
 
-    const wasliked = target.status === 'liked';
-    const isDisliked = target.status === 'disliked';
+        if (!userAction) return { error: "User record not found" };
 
-    target.status = isDisliked ? 'neutral' : 'disliked';
-    const change = isDisliked ? -1 : 1;
+        const isCurrentlyDisliked = userAction.status === 'disliked';
+        const wasLiked = userAction.status === 'liked';
+        
+        const newStatus = isCurrentlyDisliked ? 'neutral' : 'disliked';
+        const change = isCurrentlyDisliked ? -1 : 1;
 
-    const a = (paragraphd as Paragraph[]).find(x => x.id === ParagraphId);
-    if (a) {
-        a.dislikes += change;
-        if (!isDisliked && wasliked) a.likes = Math.max(0, a.likes - 1);
-    }
+        await tx.userParagraph.update({
+            where: { id: userAction.id },
+            data: { status: newStatus }
+        });
 
-    const da = (masterParagraph as DefaultParagraph[]).find(d => d.ParagraphId === ParagraphId);
-    if (da) {
-        da.dislikes += change;
-        if (!isDisliked && wasliked) da.likes = Math.max(0, da.likes - 1);
-    }
+        await tx.paragraph.update({
+            where: { id: ParagraphId },
+            data: { 
+                dislikes: { increment: change },
+                likes: (wasLiked && !isCurrentlyDisliked) ? { decrement: 1 } : undefined
+            }
+        });
 
-    const tags = (tagRelatorParagraph as TagRelatorParagraph[]).filter(t => t.ParagraphId === ParagraphId);
-    tags.forEach(t => {
-        t.dislikes += change;
-        if (!isDisliked && wasliked) t.likes = Math.max(0, t.likes - 1);
+        await tx.tagRelatorParagraph.updateMany({
+            where: { ParagraphId },
+            data: { 
+                dislikes: { increment: change },
+                likes: (wasLiked && !isCurrentlyDisliked) ? { decrement: 1 } : undefined
+            }
+        });
+
+        return { success: true, newStatus };
     });
-
-    userParagraphOut(userParagraph);
-    paragraphOut(paragraphd);
-    masterParagraphOut(masterParagraph);
-    tagRelatorParagraphOut(tagRelatorParagraph);
-
-    return { success: true, newStatus: target.status };
 }
 
 /**
- * FLAG EVENT
+ * FLAG EVENT FOR PARAGRAPH
  */
 export async function FlagEventParagraph(UserId: string, ParagraphId: string) {
-    const target = (userParagraph as UserParagraph[]).find(u => u.UserId === UserId && u.ParagraphId === ParagraphId);
-    if (!target) return { error: "UserParagraph not found" };
+    return await prisma.$transaction(async (tx) => {
+        const userAction = await tx.userParagraph.findFirst({
+            where: { UserId, ParagraphId }
+        });
 
-    target.flaged = !target.flaged;
-    const change = target.flaged ? 1 : -1;
+        if (!userAction) return { error: "User record not found" };
 
-    const a = (paragraphd as Paragraph[]).find(x => x.id === ParagraphId);
-    if (a) a.flags = Math.max(0, a.flags + change);
+        const newFlagState = !userAction.flaged;
+        const change = newFlagState ? 1 : -1;
 
-    const da = (masterParagraph as DefaultParagraph[]).find(d => d.ParagraphId === ParagraphId);
-    if (da) da.flags = Math.max(0, da.flags + change);
+        await tx.userParagraph.update({
+            where: { id: userAction.id },
+            data: { flaged: newFlagState }
+        });
 
-    const tags = (tagRelatorParagraph as TagRelatorParagraph[]).filter(t => t.ParagraphId === ParagraphId);
-    tags.forEach(t => t.flags = Math.max(0, t.flags + change));
+        // Update Global Stats
+        await tx.paragraph.update({
+            where: { id: ParagraphId },
+            data: { flags: { increment: change } }
+        });
 
-    userParagraphOut(userParagraph);
-    paragraphOut(paragraphd);
-    masterParagraphOut(masterParagraph);
-    tagRelatorParagraphOut(tagRelatorParagraph);
+        // Update Tag Relators
+        await tx.tagRelatorParagraph.updateMany({
+            where: { ParagraphId },
+            data: { flags: { increment: change } }
+        });
 
-    return { success: true, flagged: target.flaged };
+        return { success: true, flagged: newFlagState };
+    });
 }

@@ -1,3 +1,5 @@
+import { JSONValue } from "next/dist/server/config-shared";
+
 export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph' | 'note';
 
 export type stringifiedContent = {
@@ -55,7 +57,14 @@ export type User = {
     imgUrl: string;
     createdAt: string;
     userspecificAPI:string[];
-    UISettings: Record<string, any>;
+    UISettings: JSONValue;
+
+    userTags: UserTag[];
+    userAnalogy: UserAnalogy[];
+    userParagraph: UserParagraph[];
+    userSummery: UserSummery[];
+    userKeyWords: UserKeyWords[];
+    userNote: UserNote[];
 }
 
 export type UserTag = {
@@ -72,7 +81,7 @@ export type Analogy = {
     content: string;
     logic: string;
     lessonId?: string;
-    ParagraphId?: string;
+    RealParagraphId?: string;
     likes: number;
     dislikes: number;
     defaultAnalogyId: string;
@@ -87,7 +96,7 @@ export type DefaultAnalogy = {
     content: string;
     logic: string;
     lessonId?: string;
-    ParagraphId?: string;
+    RealParagraphId?: string;
     likes: number;
     dislikes: number;
     UserId: string;
@@ -142,7 +151,8 @@ export type Paragraph = {
     LessonId: string;
     likes: number; // Added
     dislikes: number; // Added
-    MasterParagraphId?: string;
+    DefaultParagraphId?: string;
+    RealParagraphId?: string;
     views: number;
     usage: number;
     flags: number;
@@ -254,7 +264,7 @@ export type KeyWord = {
 export type KeyWords = {
     id: string;
     lessonId?: string;
-    ParagraphId?: string;
+    RealParagraphId?: string;
     likes: number; // Added
     dislikes: number; // Added
     views: number;
@@ -266,7 +276,7 @@ export type KeyWords = {
 export type KeyWordDefault = {
     id: string;
     lessonId?: string;
-    ParagraphId?: string;
+    RealParagraphId?: string;
     UserId: string;
     order: number;
     // Added for consistency

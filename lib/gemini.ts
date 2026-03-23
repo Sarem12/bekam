@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { PromptType, stringifiedContent, User } from "./types";
+import { PromptType, stringifiedContent } from "./types";
 import { ProbabilityManager } from "./apiprobablitymanager";
 import { UserTag,Tag,UniversalTag } from "./types";
-import { userTag,tag,universalTag } from "@/datarelated/data";
-
+import { PrismaClient,Lesson,User } from "@prisma/client";
+// import { userTag,tag,universalTag } from "@/datarelated/data";
+import { prisma } from "./prisma";
 const probablityEngine = new ProbabilityManager([
     process.env.GEMINI_API_KEY!,
     process.env.GEMINI_API_KEY_2!,
@@ -30,18 +31,22 @@ export async function generateContent(payload: {
     });
 
     const textToProcess = 'content' in payload.target ? payload.target.content : JSON.stringify(payload.target);
-    const usertag = userTag.filter(ut => ut.UserId === payload.user.id) as UserTag[];
+const usertags = await prisma.userTag.findMany({
+    where: { UserId: payload.user.id },
+    include: {
+        tag: true // This tells Prisma to "Join" the Tag table automatically
+    }
+});
 
-const userInterests = usertag.map(ut => {
-    const tagInfo = (tag as Tag[]).find(t => t.id === ut.TagId);
-    return tagInfo ? tagInfo.name : null; 
-}).filter(Boolean) as string[]; 
+// Now just map the names out of the joined data
+const userInterests = usertags
+    .map(ut => ut.tag.name)
+    .filter(Boolean) as string[];
+    
 
-
-const universalInterests = (tag as Tag[])
-    .filter(t => (universalTag as UniversalTag[]).some(ut => ut.TagId === t.id))
-    .map(t => t.name)
-    .filter(Boolean); 
+const universalInterests = (await prisma.universalTag.findMany({
+    include: { tag: true }
+})).map(ut => ut.tag.name) as string[];
 // const allinterests = Array.from(new Set([...userInterests, ...universalInterests]));
   const jsonSchemas: Record<PromptType, string> = {
     summary: `{ "summary": "string", "tagsUsed": ["string"] }`,

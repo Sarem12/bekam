@@ -1,17 +1,20 @@
+"use server"
 import { ChangeToBestAnalogy, GetBestAnalogy } from "@/lib/analyzer";
 import { generateContent } from "@/lib/gemini";
 import { 
-    Lesson, RealParagraph, stringifiedContent, User,
-    Analogy, DefaultAnalogy, Tag, TagRelatorAnalogy, UserAnalogy
-} from "@/lib/types";
+ stringifiedContent
 
-import { 
-    user, lesson, realParagraph,
-    analogy as analogyd, analogyOut,
-    analogyDefault, analogyDefaultOut,
-    userAnalogy, userAnalogyOut,
-    tag, tagRelatorAnalogy, tagRelatorAnalogyOut
-} from "@/datarelated/data";
+} from "@/lib/types";
+import { PrismaClient ,RealParagraph} from "@prisma/client";
+import {prisma} from "@/lib/prisma";
+
+// import { 
+//     user, lesson, realParagraph,
+//     analogy as analogyd, analogyOut,
+//     analogyDefault, analogyDefaultOut,
+//     userAnalogy, userAnalogyOut,
+//     tag, tagRelatorAnalogy, tagRelatorAnalogyOut
+// } from "@/datarelated/data";
 
 import { stringifyLesson, stringifyDefaultParagraph } from "@/lib/stringifiers";
 
@@ -19,40 +22,38 @@ import { stringifyLesson, stringifyDefaultParagraph } from "@/lib/stringifiers";
  * GET ANALOGY
  */
 export async function GetAnalogy(UserId: string, contentId: string, type: 'lesson' | 'paragraph') {
+    // 1. Check for existing record
     const analogyRecord = await GetBestAnalogy(UserId, type, contentId);
 
-    if (analogyRecord !== null) {
-        const a = (analogyd as Analogy[]).find(x => x.id === analogyRecord.id);
-        if (a) {
-            a.views += 1;
-
-            const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === a.id);
-            if (da) da.views += 1;
-
-            analogyOut(analogyd);
-            analogyDefaultOut(analogyDefault);
-        }
+    if (analogyRecord) {
+        await prisma.analogy.update({
+            where: { id: analogyRecord.id },
+            data: { views: { increment: 1 }, usage: { increment: 1 } }
+        });
         return { content: analogyRecord.content, id: analogyRecord.id };
     }
 
-    const CurrentUser = user.find(u => u.id === UserId) as User;
+    // 2. Fetch User and Content
+    const CurrentUser = await prisma.user.findUnique({ where: { id: UserId } });
     if (!CurrentUser) return { error: "User not found" };
 
     let stringified: stringifiedContent;
-    let contentIdKey: "LessonId" | "ParagraphId";
+    const isLesson = type === 'lesson';
 
-    if (type === 'lesson') {
-        const CurrentLesson = (lesson as Lesson[]).find(l => l.id === contentId);
+    if (isLesson) {
+        const CurrentLesson = await prisma.lesson.findUnique({ 
+            where: { id: contentId },
+            include: { realParagraphs: true, SubLessons: true } // Kill Error 2345
+        });
         if (!CurrentLesson) return { error: "Lesson not found" };
-        stringified = stringifyLesson(CurrentLesson);
-        contentIdKey = "LessonId";
+        stringified = await stringifyLesson(CurrentLesson);
     } else {
-        const CurrentParagraph = (realParagraph as RealParagraph[]).find(p => p.id === contentId);
+        const CurrentParagraph = await prisma.realParagraph.findUnique({ where: { id: contentId } });
         if (!CurrentParagraph) return { error: "Paragraph not found" };
-        stringified = stringifyDefaultParagraph(CurrentParagraph);
-        contentIdKey = "ParagraphId";
+        stringified = stringifyDefaultParagraph(CurrentParagraph as RealParagraph);
     }
 
+    // 3. Generate AI Content
     const response = await generateContent({
         requestType: 'analogy',
         user: CurrentUser,
@@ -61,124 +62,107 @@ export async function GetAnalogy(UserId: string, contentId: string, type: 'lesso
 
     if (response.error) throw new Error(response.error);
 
-    const timestamp = Date.now();
-    const analogyId = `ana-${timestamp}`;
-    const defaultAnalogyId = `defana-${timestamp}`;
+    // 4. CHECK FOR EXISTING SLOT (The "Rule")
+    const existingSlot = await prisma.defaultAnalogy.findFirst({
+        where: {
+            UserId: UserId,
+            [isLesson ? "lessonId" : "RealParagraphId"]: contentId
+        }
+    });
 
-    // TAGS
-    const analogyTags: TagRelatorAnalogy[] = (response.tagsUsed || [])
-        .map((ta: string) => {
-            const specificTag = (tag as Tag[]).find(t => t.name.toLowerCase() === ta.toLowerCase());
-            if (!specificTag) return null;
-            return {
-                id: `tagrel-a-${timestamp}-${Math.random()}`,
-                TagId: specificTag.id,
-                AnalogyId: analogyId,
-                likes: 0, dislikes: 0, views: 0, usage: 0, flags: 0,
-            };
-        })
-        .filter(Boolean) as TagRelatorAnalogy[];
+    // 5. Create the Analogy and link it correctly
+    const finalAnalogy = await prisma.analogy.create({
+        data: {
+            content: response.content,
+            logic: response.logic,
+            [isLesson ? "lessonId" : "RealParagraphId"]: contentId,
+            views: 1,
+            usage: 1,
+            
+            // Link to existing pool if it exists
+            ...(existingSlot ? { defaultAnalogyId: existingSlot.id } : {}),
 
-    const newAnalogy: Analogy = {
-        id: analogyId,
-        content: response.content,
-        logic: response.logic,
-        [contentIdKey]: contentId,
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        defaultAnalogyId: defaultAnalogyId,
-        createdAt: new Date().toISOString(),
-    };
+            userActions: {
+                create: {
+                    UserId: UserId,
+                    status: 'neutral',
+                    onuse: true
+                }
+            }
+        }
+    });
 
-    const defaultAnalogy: DefaultAnalogy = {
-        id: defaultAnalogyId,
-        content: response.content,
-        logic: response.logic,
-        [contentIdKey]: contentId,
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        AnalogyId: analogyId,
-        UserId: UserId,
-        createdAt: new Date().toISOString(),
-        order: 0
-    };
+    // 6. Handle the Slot (Create new or Update active)
+    if (existingSlot) {
+        await prisma.defaultAnalogy.update({
+            where: { id: existingSlot.id },
+            data: { AnalogyId: finalAnalogy.id } // Set new one as active
+        });
+    } else {
+        await prisma.defaultAnalogy.create({
+            data: {
+                UserId: UserId,
+                AnalogyId: finalAnalogy.id, // Mandatory 1:1 link
+                [isLesson ? "lessonId" : "RealParagraphId"]: contentId,
+                order: 0,
+                // Add this first one to its own pool
+                alternatives: { connect: { id: finalAnalogy.id } }
+            }
+        });
+    }
 
-    const useranalogy: UserAnalogy = {
-        id: `userana-${timestamp}`,
-        UserId,
-        AnalogyId: analogyId,
-        flaged: false,
-        onuse: true,
-        status: 'neutral',
-        lastSeenAt: new Date().toISOString(),
-        skiped: false
-    };
-
-    analogyd.push(newAnalogy);
-    analogyDefault.push(defaultAnalogy);
-    userAnalogy.push(useranalogy);
-    tagRelatorAnalogy.push(...analogyTags);
-
-    analogyOut(analogyd);
-    analogyDefaultOut(analogyDefault);
-    userAnalogyOut(userAnalogy);
-    tagRelatorAnalogyOut(tagRelatorAnalogy);
-
-    return { ...response, id: analogyId };
+    return { ...response, id: finalAnalogy.id };
 }
 
 /**
  * CHANGE ANALOGY
  */
 export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
-    const def = (analogyDefault as DefaultAnalogy[]).find(d => d.id === DefaultAnalogyId);
+    const def = await prisma.defaultAnalogy.findUnique({ where: { id: DefaultAnalogyId } });
     if (!def) return { error: "Default Analogy not found" };
 
-    // 1. mark current as skipped
-    const current = (userAnalogy as UserAnalogy[]).find(u => 
-        u.UserId === userId && u.AnalogyId === def.AnalogyId
-    );
+    // 1. Mark current as skipped
+    await prisma.userAnalogy.updateMany({
+        where: { UserId: userId, AnalogyId: def.AnalogyId },
+        data: { skiped: true, onuse: false }
+    });
 
-    if (current) {
-        current.skiped = true;
-        current.onuse = false;
-        userAnalogyOut(userAnalogy);
-    }
-
-    // 2. try DB alternative
+    // 2. Try DB alternative
     const best = await ChangeToBestAnalogy(DefaultAnalogyId, userId);
-
-    if (best !== null && best.id !== def.AnalogyId) {
-        def.AnalogyId = best.id;
-        def.content = best.content;
-        def.likes = best.likes;
-        def.dislikes = best.dislikes;
-        def.views = best.views + 1;
-        def.usage = best.usage;
-        def.flags = best.flags;
-
-        analogyDefaultOut(analogyDefault);
+    if (best) {
+        // ADDED AWAIT HERE - Crucial for the database to actually save
+        await prisma.analogy.update({
+            where: { id: best.id },
+            data: { views: { increment: 1 }, usage: { increment: 1 } }
+        });
+        await prisma.defaultAnalogy.update({
+            where: { id: DefaultAnalogyId },
+            data: { AnalogyId: best.id }
+        });
         return best;
     }
 
     // 3. 🔥 NO reuse → generate directly
-    const CurrentUser = user.find(u => u.id === userId) as User;
+    const CurrentUser = await prisma.user.findUnique({ where: { id: userId } });
     if (!CurrentUser) return { error: "User not found" };
 
     const type = def.lessonId ? 'lesson' : 'paragraph';
-    const contentId = (def.lessonId || def.ParagraphId) as string;
+    const contentId = (def.lessonId || def.RealParagraphId) as string;
 
-    let stringified: stringifiedContent;
-    let contentIdKey: "lessonId" | "ParagraphId";
+    let stringified: any; // Use your stringifiedContent type
+    const contentIdKey = def.lessonId ? "lessonId" : "RealParagraphId";
 
     if (type === 'lesson') {
-        const CurrentLesson = (lesson as Lesson[]).find(l => l.id === contentId);
+        const CurrentLesson = await prisma.lesson.findUnique({ 
+            where: { id: contentId },
+            include: { realParagraphs: true, SubLessons: true } // Fixes potential Error 2345
+        });
         if (!CurrentLesson) return { error: "Lesson not found" };
-        stringified = stringifyLesson(CurrentLesson);
-        contentIdKey = "lessonId";
+        stringified = await stringifyLesson(CurrentLesson);
     } else {
-        const CurrentParagraph = (realParagraph as RealParagraph[]).find(p => p.id === contentId);
+        const CurrentParagraph = await prisma.realParagraph.findUnique({ where: { id: contentId } });
         if (!CurrentParagraph) return { error: "Paragraph not found" };
-        stringified = stringifyDefaultParagraph(CurrentParagraph);
-        contentIdKey = "ParagraphId";
+        stringified = await stringifyDefaultParagraph(CurrentParagraph);
     }
 
     const response = await generateContent({
@@ -189,149 +173,152 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
 
     if (response.error) return response;
 
-    const timestamp = Date.now();
-    const analogyId = `ana-${timestamp}`;
+    // 4. Create in DB and Link to Slot
+    // We let Prisma generate the ID automatically
+    const createdAnalogy = await prisma.analogy.create({
+        data: {
+            content: response.content,
+            logic: response.logic,
+            [contentIdKey]: contentId,
+            views: 1,
+            usage: 1,
+            defaultAnalogyId: DefaultAnalogyId, // Link to the Pool
+            userActions: {
+                create: {
+                    UserId: userId,
+                    status: 'neutral',
+                    onuse: true
+                }
+            }
+        }
+    });
 
-    const newAnalogy: Analogy = {
-        id: analogyId,
-        content: response.content,
-        logic: response.logic,
-        [contentIdKey]: contentId,
-        likes: 0, dislikes: 0, views: 1, usage: 1, flags: 0,
-        defaultAnalogyId: DefaultAnalogyId,
-        createdAt: new Date().toISOString(),
-    } as Analogy;
+    // 5. Update the Slot to point to the new ID
+    await prisma.defaultAnalogy.update({
+        where: { id: DefaultAnalogyId },
+        data: { AnalogyId: createdAnalogy.id }
+    });
 
-    const useranalogy: UserAnalogy = {
-        id: `userana-${timestamp}`,
-        UserId: userId,
-        AnalogyId: analogyId,
-        flaged: false,
-        onuse: true,
-        status: 'neutral',
-        lastSeenAt: new Date().toISOString(),
-        skiped: false
-    };
-
-    def.AnalogyId = analogyId;
-    def.content = response.content;
-    def.likes = 0;
-    def.dislikes = 0;
-    def.views = 1;
-    def.usage = 1;
-    def.flags = 0;
-
-    analogyd.push(newAnalogy);
-    userAnalogy.push(useranalogy);
-
-    analogyOut(analogyd);
-    analogyDefaultOut(analogyDefault);
-    userAnalogyOut(userAnalogy);
-
-    return response;
+    return { ...response, id: createdAnalogy.id };
 }
 
 /**
  * LIKE EVENT
  */
 export async function LikeEventAnalogy(UserId: string, AnalogyId: string) {
-    const target = (userAnalogy as UserAnalogy[]).find(u => u.UserId === UserId && u.AnalogyId === AnalogyId);
-    if (!target) return { error: "UserAnalogy not found" };
-
-    const wasdisliked = target.status === 'disliked';
-    const isLiked = target.status === 'liked';
-
-    target.status = isLiked ? 'neutral' : 'liked';
-    const change = isLiked ? -1 : 1;
-
-    const a = (analogyd as Analogy[]).find(x => x.id === AnalogyId);
-    if (a) {
-        a.likes += change;
-        if (!isLiked && wasdisliked) a.dislikes = Math.max(0, a.dislikes - 1);
-    }
-
-    const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === AnalogyId);
-    if (da) {
-        da.likes += change;
-        if (!isLiked && wasdisliked) da.dislikes = Math.max(0, da.dislikes - 1);
-    }
-
-    const tags = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(t => t.AnalogyId === AnalogyId);
-    tags.forEach(t => {
-        t.likes += change;
-        if (!isLiked && wasdisliked) t.dislikes = Math.max(0, t.dislikes - 1);
+    // 1. Find the current status
+    const currentAction = await prisma.userAnalogy.findFirst({
+        where: { UserId, AnalogyId }
     });
 
-    analogyOut(analogyd);
-    analogyDefaultOut(analogyDefault);
-    userAnalogyOut(userAnalogy);
-    tagRelatorAnalogyOut(tagRelatorAnalogy);
+    if (!currentAction) return { error: "UserAnalogy not found" };
 
-    return { success: true, newStatus: target.status };
+    const wasDisliked = currentAction.status === 'disliked';
+    const isCurrentlyLiked = currentAction.status === 'liked';
+    
+    // Determine new status and the math change
+    const newStatus = isCurrentlyLiked ? 'neutral' : 'liked';
+    const likeChange = isCurrentlyLiked ? -1 : 1;
+    const dislikeChange = (wasDisliked && !isCurrentlyLiked) ? -1 : 0;
+
+    // 2. Run everything in a Transaction (Safe & Atomic)
+    await prisma.$transaction([
+        // Update the User's personal status
+        prisma.userAnalogy.update({
+            where: { id: currentAction.id },
+            data: { status: newStatus }
+        }),
+
+        // Update the Global Analogy Stats
+        prisma.analogy.update({
+            where: { id: AnalogyId },
+            data: { 
+                likes: { increment: likeChange },
+                dislikes: { increment: dislikeChange }
+            }
+        }),
+
+        // Update Tag Stats (This handles all tags linked to this analogy)
+        prisma.tagRelatorAnalogy.updateMany({
+            where: { AnalogyId },
+            data: { 
+                likes: { increment: likeChange },
+                // Note: Ensure your schema has the 'dislikes' field on TagRelatorAnalogy
+                // If not, you can remove this line
+                dislikes: { increment: dislikeChange } 
+            }
+        })
+    ]);
+
+    return { success: true, newStatus };
 }
 
 /**
  * DISLIKE EVENT
  */
 export async function DislikeEventAnalogy(UserId: string, AnalogyId: string) {
-    const target = (userAnalogy as UserAnalogy[]).find(u => u.UserId === UserId && u.AnalogyId === AnalogyId);
-    if (!target) return { error: "UserAnalogy not found" };
-
-    const wasliked = target.status === 'liked';
-    const isDisliked = target.status === 'disliked';
-
-    target.status = isDisliked ? 'neutral' : 'disliked';
-    const change = isDisliked ? -1 : 1;
-
-    const a = (analogyd as Analogy[]).find(x => x.id === AnalogyId);
-    if (a) {
-        a.dislikes += change;
-        if (!isDisliked && wasliked) a.likes = Math.max(0, a.likes - 1);
-    }
-
-    const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === AnalogyId);
-    if (da) {
-        da.dislikes += change;
-        if (!isDisliked && wasliked) da.likes = Math.max(0, da.likes - 1);
-    }
-
-    const tags = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(t => t.AnalogyId === AnalogyId);
-    tags.forEach(t => {
-        t.dislikes += change;
-        if (!isDisliked && wasliked) t.likes = Math.max(0, t.likes - 1);
+    const currentAction = await prisma.userAnalogy.findFirst({
+        where: { UserId, AnalogyId }
     });
 
-    userAnalogyOut(userAnalogy);
-    analogyOut(analogyd);
-    analogyDefaultOut(analogyDefault);
-    tagRelatorAnalogyOut(tagRelatorAnalogy);
+    if (!currentAction) return { error: "UserAnalogy not found" };
 
-    return { success: true, newStatus: target.status };
+    const wasLiked = currentAction.status === 'liked';
+    const isCurrentlyDisliked = currentAction.status === 'disliked';
+    
+    const newStatus = isCurrentlyDisliked ? 'neutral' : 'disliked';
+    const dislikeChange = isCurrentlyDisliked ? -1 : 1;
+    const likeChange = (wasLiked && !isCurrentlyDisliked) ? -1 : 0;
+
+    await prisma.$transaction([
+        prisma.userAnalogy.update({
+            where: { id: currentAction.id },
+            data: { status: newStatus }
+        }),
+        prisma.analogy.update({
+            where: { id: AnalogyId },
+            data: { 
+                dislikes: { increment: dislikeChange },
+                likes: { increment: likeChange }
+            }
+        }),
+        prisma.tagRelatorAnalogy.updateMany({
+            where: { AnalogyId },
+            data: { 
+                dislikes: { increment: dislikeChange },
+                likes: { increment: likeChange }
+            }
+        })
+    ]);
+
+    return { success: true, newStatus };
 }
 
-/**
- * FLAG EVENT
- */
 export async function FlagEventAnalogy(UserId: string, AnalogyId: string) {
-    const target = (userAnalogy as UserAnalogy[]).find(u => u.UserId === UserId && u.AnalogyId === AnalogyId);
-    if (!target) return { error: "UserAnalogy not found" };
+    const currentAction = await prisma.userAnalogy.findFirst({
+        where: { UserId, AnalogyId }
+    });
 
-    target.flaged = !target.flaged;
-    const change = target.flaged ? 1 : -1;
+    if (!currentAction) return { error: "UserAnalogy not found" };
 
-    const a = (analogyd as Analogy[]).find(x => x.id === AnalogyId);
-    if (a) a.flags = Math.max(0, a.flags + change);
+    // Toggle the boolean
+    const newFlagStatus = !currentAction.flaged;
+    const change = newFlagStatus ? 1 : -1;
 
-    const da = (analogyDefault as DefaultAnalogy[]).find(d => d.AnalogyId === AnalogyId);
-    if (da) da.flags = Math.max(0, da.flags + change);
+    await prisma.$transaction([
+        prisma.userAnalogy.update({
+            where: { id: currentAction.id },
+            data: { flaged: newFlagStatus }
+        }),
+        prisma.analogy.update({
+            where: { id: AnalogyId },
+            data: { flags: { increment: change } }
+        }),
+        prisma.tagRelatorAnalogy.updateMany({
+            where: { AnalogyId },
+            data: { flags: { increment: change } }
+        })
+    ]);
 
-    const tags = (tagRelatorAnalogy as TagRelatorAnalogy[]).filter(t => t.AnalogyId === AnalogyId);
-    tags.forEach(t => t.flags = Math.max(0, t.flags + change));
-
-    userAnalogyOut(userAnalogy);
-    analogyOut(analogyd);
-    analogyDefaultOut(analogyDefault);
-    tagRelatorAnalogyOut(tagRelatorAnalogy);
-
-    return { success: true, flagged: target.flaged };
+    return { success: true, flagged: newFlagStatus };
 }

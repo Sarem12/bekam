@@ -1,69 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+   engineType = "library"
+}
+
 datasource db {
   provider = "postgresql"
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 // --- ENUMS ---
+
+enum ActionStatus {
+  liked
+  disliked
+  neutral
+}
 
 enum Gender {
   MALE
   FEMALE
 }
 
-enum Status {
-  LIKED
-  DISLIKED
-  NEUTRAL
-}
-
-// --- USER SYSTEM ---
+// --- USER & AUTH ---
 
 model User {
-  id              String   @id @default(cuid())
-  gender          Gender
+  id              String   @id @default(uuid())
+  gender          Gender   // Changed to Enum
   age             Int
   first           String
   last            String
   email           String   @unique
   password        String
+  username       String   @unique
   imgUrl          String?
   createdAt       DateTime @default(now())
   userspecificAPI String[]
+  UISettings      Json?
 
-  uiSettings Json @default("{\"theme\": \"system\", \"sidebarCollapsed\": false}")
-
-  // Relations
-  userTags          UserTag[]
-  notes             Note[]
-  noteDefaults      NoteDefault[]
-  userAnalogies     UserAnalogy[]
+  userTags        UserTag[]
+  userAnalogy     UserAnalogy[]
+  userParagraph   UserParagraph[]
+  userSummery     UserSummery[]
+  userKeyWords    UserKeyWords[]
+  userNote        UserNote[]
+  
   defaultAnalogies  DefaultAnalogy[]
-  userParagraphs    UserParagraph[]
   defaultParagraphs DefaultParagraph[]
-  userSummaries     UserSummary[]
-  defaultSummaries  DefaultSummary[]
-  userKeywords      UserKeyWords[]
-  keywordDefaults   KeyWordDefault[]
-  userNotes         UserNote[]
+  defaultSummaries  DefaultSummery[]
+  defaultKeywords   KeyWordDefault[]
+  defaultNotes      NoteDefault[]
+  notes             Note[]
 }
 
 model UserTag {
-  id           String @id @default(cuid())
-  userId       String
-  tagId        String
-  likingLevel  Int    @default(0)
-
-  user User @relation(fields: [userId], references: [id])
-  tag  Tag  @relation(fields: [tagId], references: [id])
+  id          String @id @default(uuid())
+  UserId      String
+  TagId       String
+  likingLevel Float  @default(0)
+  user        User   @relation(fields: [UserId], references: [id])
+  tag         Tag    @relation(fields: [TagId], references: [id])
 }
 
-// --- EDUCATION STRUCTURE ---
+// --- EDUCATION HIERARCHY ---
 
 model Book {
-  id      String @id @default(cuid())
+  id      String @id @default(uuid())
   subject String
   grade   Int
   imgUrl  String
@@ -71,60 +71,122 @@ model Book {
 }
 
 model Unit {
-  id     String @id @default(cuid())
-  title  String
-  bookId String
-
-  book             Book             @relation(fields: [bookId], references: [id])
-  lessons          Lesson[]
-  summaries        Summary[]
-  defaultSummaries DefaultSummary[]
+  id        String    @id @default(uuid())
+  title     String
+  BookId    String
+  book      Book      @relation(fields: [BookId], references: [id])
+  lessons   Lesson[]
+  summeries Summery[]
 }
 
 model Lesson {
-  id             String  @id @default(cuid())
+  id             String   @id @default(uuid())
   title          String
   unitId         String
-  parentLessonId String?
+  ParentLessonId String?
   index          Int
-
-  unit           Unit      @relation(fields: [unitId], references: [id])
-  parent         Lesson?   @relation("LessonToLesson", fields: [parentLessonId], references: [id])
-  childLessons   Lesson[]  @relation("LessonToLesson")
-
+  unit           Unit     @relation(fields: [unitId], references: [id])
+  
   analogies      Analogy[]
   paragraphs     Paragraph[]
-  summaries      Summary[]
   keywords       KeyWords[]
   notes          Note[]
+  summeries      Summery[]
   realParagraphs RealParagraph[]
-}
 
-// --- THE MASTER SOURCE (The Anchor) ---
+  ParentLesson   Lesson?  @relation("SubLessons", fields: [ParentLessonId], references: [id])
+  SubLessons     Lesson[] @relation("SubLessons")
+}
 
 model RealParagraph {
-  id              String   @id @default(cuid())
-  content         String   
-  lessonId        String
-  order           Int
-  createdAt       DateTime @default(now())
-
-  lesson          Lesson   @relation(fields: [lessonId], references: [id])
+  id        String   @id @default(uuid())
+  content   String
+  LessonId  String
+  order     Int      @default(0)
+  lesson    Lesson   @relation(fields: [LessonId], references: [id])
+  analogies Analogy[]
+  keywords  KeyWords[]
   
-  // Pointers for user dashboards
-  studentParagraphs DefaultParagraph[]
-  studentAnalogies  DefaultAnalogy[]
-  studentKeywords   KeyWordDefault[]
-  boxes             Box[]
+  views     Int      @default(0)
+  usage     Int      @default(0)
+  flags     Int      @default(0)
+  createdAt DateTime @default(now())
 }
 
-// --- ANALOGY SYSTEM ---
+// --- TAGGING SYSTEM ---
+
+model Tag {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  linkedWith  String[]
+  analogies   TagRelatorAnalogy[]
+  paragraphs  TagRelatorParagraph[]
+  summeries   TagRelatorSummery[]
+  keywords    TagRelatorKeyWords[]
+  notes       TagRelatorNote[]
+  userTags    UserTag[]
+  universalTag UniversalTag?
+}
+
+model UniversalTag {
+  id    String @id @default(uuid())
+  tagID String @unique
+  tag   Tag    @relation(fields: [tagID], references: [id])
+}
+
+// --- CONTENT SYSTEMS ---
 
 model Analogy {
-  id               String   @id @default(cuid())
+  id               String   @id @default(uuid())
   content          String
   logic            String
   lessonId         String?
+  RealParagraphId  String?
+  likes            Int      @default(0)
+  dislikes         Int      @default(0)
+  views            Int      @default(0)
+  usage            Int      @default(0)
+  flags            Int      @default(0)
+  createdAt        DateTime @default(now())
+  
+  lesson           Lesson?  @relation(fields: [lessonId], references: [id])
+  realParagraph    RealParagraph? @relation(fields: [RealParagraphId], references: [id])
+  
+  activeInSlots    DefaultAnalogy? @relation("ActiveAnalogy")
+  parentSlot       DefaultAnalogy? @relation("AnalogyPool", fields: [defaultAnalogyId], references: [id])
+  defaultAnalogyId String?
+
+  tagsAnalogy      TagRelatorAnalogy[]
+  userActions      UserAnalogy[]
+}
+
+model Paragraph {
+  id                 String   @id @default(uuid())
+  content            String
+  LessonId           String
+  MasterParagraphId  String   
+  likes              Int      @default(0)
+  dislikes           Int      @default(0)
+  views              Int      @default(0)
+  usage              Int      @default(0)
+  flags              Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  lesson             Lesson   @relation(fields: [LessonId], references: [id])
+  
+  activeInSlots      DefaultParagraph? @relation("ActiveParagraph")
+  parentSlot         DefaultParagraph? @relation("ParagraphPool", fields: [defaultParagraphId], references: [id])
+  defaultParagraphId String?
+
+  tagsParagraph      TagRelatorParagraph[]
+  userActions        UserParagraph[]
+}
+
+model Summery {
+  id               String   @id @default(uuid())
+  content          String
+  LessonId         String?
+  UnitId           String?
   likes            Int      @default(0)
   dislikes         Int      @default(0)
   views            Int      @default(0)
@@ -132,305 +194,259 @@ model Analogy {
   flags            Int      @default(0)
   createdAt        DateTime @default(now())
 
-  defaultAnalogyId String
-  defaultAnalogy   DefaultAnalogy @relation("AnalogyVersions", fields: [defaultAnalogyId], references: [id])
-  activeInDefault  DefaultAnalogy? @relation("ActiveAnalogy")
-
-  lesson           Lesson?  @relation(fields: [lessonId], references: [id])
-  userActions      UserAnalogy[]
-  tags             TagRelatorAnalogy[]
-}
-
-model DefaultAnalogy {
-  id               String   @id @default(cuid())
-  userId           String
-  order            Int
+  lesson           Lesson?  @relation(fields: [LessonId], references: [id])
+  unit             Unit?    @relation(fields: [UnitId], references: [id])
   
-  realParagraphId  String
-  realParagraph    RealParagraph @relation(fields: [realParagraphId], references: [id])
+  activeInSlots    DefaultSummery? @relation("ActiveSummery")
+  parentSlot       DefaultSummery? @relation("SummeryPool", fields: [defaultSummeryId], references: [id])
+  defaultSummeryId String?
 
-  versions         Analogy[] @relation("AnalogyVersions")
-  currentAnalogyId String?   @unique
-  currentAnalogy   Analogy?  @relation("ActiveAnalogy", fields: [currentAnalogyId], references: [id])
-
-  user             User      @relation(fields: [userId], references: [id])
+  tagsSummery      TagRelatorSummery[]
+  userActions      UserSummery[]
 }
-
-model UserAnalogy {
-  id        String   @id @default(cuid())
-  userId    String
-  analogyId String
-  status    Status   @default(NEUTRAL)
-  flagged   Boolean  @default(false)
-  onUse     Boolean  @default(false)
-  skipped   Boolean  @default(false)
-  lastSeen  DateTime @updatedAt
-
-  user      User     @relation(fields: [userId], references: [id])
-  analogy   Analogy  @relation(fields: [analogyId], references: [id])
-}
-
-// --- PARAGRAPH SYSTEM ---
-
-model Paragraph {
-  id                  String   @id @default(cuid())
-  content             String   
-  lessonId            String
-  likes               Int      @default(0)
-  dislikes            Int      @default(0)
-  createdAt           DateTime @default(now())
-
-  defaultParagraphId  String
-  defaultParagraph    DefaultParagraph @relation("ParagraphVersions", fields: [defaultParagraphId], references: [id])
-  activeInDefault     DefaultParagraph? @relation("ActiveParagraph")
-
-  lesson              Lesson   @relation(fields: [lessonId], references: [id])
-  userActions         UserParagraph[]
-  tags                TagRelatorParagraph[]
-}
-
-model DefaultParagraph {
-  id                 String @id @default(cuid())
-  userId             String
-  order              Int
-  
-  realParagraphId    String
-  realParagraph      RealParagraph @relation(fields: [realParagraphId], references: [id])
-
-  versions           Paragraph[] @relation("ParagraphVersions")
-  currentParagraphId String?     @unique
-  currentParagraph   Paragraph?  @relation("ActiveParagraph", fields: [currentParagraphId], references: [id])
-
-  user               User      @relation(fields: [userId], references: [id])
-}
-
-model UserParagraph {
-  id          String   @id @default(cuid())
-  userId      String
-  paragraphId String
-  status      Status   @default(NEUTRAL)
-  flagged     Boolean  @default(false)
-  onUse       Boolean  @default(false)
-  skipped     Boolean  @default(false)
-  lastSeen    DateTime @updatedAt
-
-  user        User      @relation(fields: [userId], references: [id])
-  paragraph   Paragraph @relation(fields: [paragraphId], references: [id])
-}
-
-// --- SUMMARY SYSTEM ---
-
-model Summary {
-  id               String   @id @default(cuid())
-  content          String
-  lessonId         String?
-  unitId           String?
-  likes            Int      @default(0)
-  dislikes         Int      @default(0)
-  createdAt        DateTime @default(now())
-
-  defaultSummaryId String
-  defaultSummary   DefaultSummary @relation("SummaryVersions", fields: [defaultSummaryId], references: [id])
-  activeInDefault  DefaultSummary? @relation("ActiveSummary")
-
-  lesson           Lesson?  @relation(fields: [lessonId], references: [id])
-  unit             Unit?    @relation(fields: [unitId], references: [id])
-  userActions      UserSummary[]
-  tags             TagRelatorSummary[]
-}
-
-model DefaultSummary {
-  id               String   @id @default(cuid())
-  userId           String
-  order            Int
-  unitId           String
-
-  versions         Summary[] @relation("SummaryVersions")
-  currentSummaryId String?   @unique
-  currentSummary   Summary?  @relation("ActiveSummary", fields: [currentSummaryId], references: [id])
-
-  user             User      @relation(fields: [userId], references: [id])
-  unit             Unit      @relation(fields: [unitId], references: [id])
-}
-
-model UserSummary {
-  id        String   @id @default(cuid())
-  userId    String
-  summaryId String
-  status    Status   @default(NEUTRAL)
-  flagged   Boolean  @default(false)
-  onUse     Boolean  @default(false)
-  lastSeen  DateTime @updatedAt
-
-  user      User     @relation(fields: [userId], references: [id])
-  summary   Summary  @relation(fields: [summaryId], references: [id])
-}
-
-// --- KEYWORD SYSTEM ---
 
 model KeyWords {
-  id               String   @id @default(cuid())
-  lessonId         String?
-  likes            Int      @default(0)
-  dislikes         Int      @default(0)
-  createdAt        DateTime @default(now())
+  id                String   @id @default(uuid())
+  lessonId          String?
+  RealParagraphId   String?
+  likes             Int      @default(0)
+  dislikes          Int      @default(0)
+  views             Int      @default(0)
+  usage             Int      @default(0)
+  flags             Int      @default(0)
+  createdAt          DateTime @default(now())
 
-  defaultKeyWordId String
-  defaultKeyWord   KeyWordDefault @relation("KeywordVersions", fields: [defaultKeyWordId], references: [id])
-  activeInDefault  KeyWordDefault? @relation("ActiveKeyword")
+  lesson            Lesson?  @relation(fields: [lessonId], references: [id])
+  realParagraph     RealParagraph? @relation(fields: [RealParagraphId], references: [id])
+  
+  activeInSlots     KeyWordDefault? @relation("ActiveKeywords")
+  parentSlot        KeyWordDefault? @relation("KeywordsPool", fields: [defaultKeywordsId], references: [id])
+  defaultKeywordsId String?
 
-  lesson           Lesson?  @relation(fields: [lessonId], references: [id])
-  words            KeyWord[]
-  userActions      UserKeyWords[]
-  tags             TagRelatorKeyWords[]
+  tagsKeyWords      TagRelatorKeyWords[]
+  userActions       UserKeyWords[]
 }
-
-model KeyWord {
-  id          String @id @default(cuid())
-  word        String
-  definition  String
-  keywordsId  String
-
-  parent      KeyWords @relation(fields: [keywordsId], references: [id])
-}
-
-model KeyWordDefault {
-  id                String   @id @default(cuid())
-  userId            String
-  order             Int
-
-  realParagraphId   String
-  realParagraph     RealParagraph @relation(fields: [realParagraphId], references: [id])
-
-  versions          KeyWords[] @relation("KeywordVersions")
-  currentKeyWordsId String?    @unique
-  currentKeyWords   KeyWords?  @relation("ActiveKeyword", fields: [currentKeyWordsId], references: [id])
-
-  user              User       @relation(fields: [userId], references: [id])
-}
-
-model UserKeyWords {
-  id         String   @id @default(cuid())
-  userId     String
-  keywordsId String
-  status     Status   @default(NEUTRAL)
-  lastSeen   DateTime @updatedAt
-
-  user       User     @relation(fields: [userId], references: [id])
-  keywords   KeyWords @relation(fields: [keywordsId], references: [id])
-}
-
-// --- NOTE SYSTEM ---
 
 model Note {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   content         String
-  userId          String
-  lessonId        String
+  UserId          String
+  LessonId        String
+  likes           Int      @default(0)
+  dislikes        Int      @default(0)
+  views           Int      @default(0)
+  usage           Int      @default(0)
+  flags           Int      @default(0)
   createdAt       DateTime @default(now())
+  
+  user            User     @relation(fields: [UserId], references: [id])
+  lesson          Lesson   @relation(fields: [LessonId], references: [id])
+  
+  activeInSlots   NoteDefault? @relation("ActiveNote")
+  parentSlot      NoteDefault? @relation("NotePool", fields: [defaultNoteId], references: [id])
+  defaultNoteId   String?
 
-  defaultNoteId   String
-  defaultNote     NoteDefault @relation("NoteVersions", fields: [defaultNoteId], references: [id])
-  activeInDefault NoteDefault? @relation("ActiveNote")
-
-  user            User     @relation(fields: [userId], references: [id])
-  lesson          Lesson   @relation(fields: [lessonId], references: [id])
+  tagsNote        TagRelatorNote[]
   userActions     UserNote[]
-  tags            TagRelatorNote[]
 }
 
-model NoteDefault {
-  id            String @id @default(cuid())
-  userId        String
-  order         Int
-
-  versions      Note[] @relation("NoteVersions")
-  currentNoteId String? @unique
-  currentNote   Note?   @relation("ActiveNote", fields: [currentNoteId], references: [id])
-
-  user          User   @relation(fields: [userId], references: [id])
-}
-
-model UserNote {
-  id       String   @id @default(cuid())
-  userId   String
-  noteId   String
-  status   Status   @default(NEUTRAL)
-  lastSeen DateTime @updatedAt
-
-  user     User @relation(fields: [userId], references: [id])
-  note     Note @relation(fields: [noteId], references: [id])
-}
-
-// --- TAGGING & JOIN TABLES ---
-
-model Tag {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  linkedWith String[] 
-
-  userTags            UserTag[]
-  universalTag        UniversalTag?
-  relatorAnalogies    TagRelatorAnalogy[]
-  relatorParagraphs   TagRelatorParagraph[]
-  relatorSummaries    TagRelatorSummary[]
-  relatorKeywords     TagRelatorKeyWords[]
-  relatorNotes        TagRelatorNote[]
-}
-
-model UniversalTag {
-  id    String @id @default(cuid())
-  tagId String @unique
-  index Int
-  tag   Tag @relation(fields: [tagId], references: [id])
-}
+// --- RELATORS ---
 
 model TagRelatorAnalogy {
-  id        String @id @default(cuid())
-  tagId     String
-  analogyId String
-  tag       Tag     @relation(fields: [tagId], references: [id])
-  analogy   Analogy @relation(fields: [analogyId], references: [id])
+  id        String  @id @default(uuid())
+  TagId     String
+  AnalogyId String
+  views     Int     @default(0)
+  usage     Int     @default(0)
+  likes     Int     @default(0)
+  dislikes  Int     @default(0)
+  flags     Int     @default(0)
+  tag       Tag     @relation(fields: [TagId], references: [id])
+  analogy   Analogy @relation(fields: [AnalogyId], references: [id])
 }
 
 model TagRelatorParagraph {
-  id          String @id @default(cuid())
-  tagId       String
-  paragraphId String
-  tag         Tag       @relation(fields: [tagId], references: [id])
-  paragraph   Paragraph @relation(fields: [paragraphId], references: [id])
+  id          String    @id @default(uuid())
+  TagId       String
+  ParagraphId String
+  views       Int       @default(0)
+  usage       Int       @default(0)
+  likes       Int       @default(0)
+  dislikes    Int       @default(0)
+  flags       Int       @default(0)
+  tag         Tag       @relation(fields: [TagId], references: [id])
+  paragraph   Paragraph @relation(fields: [ParagraphId], references: [id])
 }
 
-model TagRelatorSummary {
-  id        String @id @default(cuid())
-  tagId     String
-  summaryId String
-  tag       Tag     @relation(fields: [tagId], references: [id])
-  summary   Summary @relation(fields: [summaryId], references: [id])
+model TagRelatorSummery {
+  id        String  @id @default(uuid())
+  TagId     String
+  SummeryId String
+  views     Int     @default(0)
+  usage     Int     @default(0)
+  likes     Int     @default(0)
+  dislikes  Int     @default(0)
+  flags     Int     @default(0)
+  tag       Tag     @relation(fields: [TagId], references: [id])
+  summery   Summery @relation(fields: [SummeryId], references: [id])
 }
 
 model TagRelatorKeyWords {
-  id         String @id @default(cuid())
-  tagId      String
-  keywordsId String
-  tag        Tag      @relation(fields: [tagId], references: [id])
-  keywords   KeyWords @relation(fields: [keywordsId], references: [id])
+  id         String   @id @default(uuid())
+  TagId      String
+  KeyWordsId String
+  views      Int      @default(0)
+  usage      Int      @default(0)
+  likes      Int      @default(0)
+  dislikes   Int      @default(0)
+  flags      Int      @default(0)
+  tag        Tag      @relation(fields: [TagId], references: [id])
+  keywords   KeyWords @relation(fields: [KeyWordsId], references: [id])
 }
 
 model TagRelatorNote {
-  id     String @id @default(cuid())
-  tagId  String
-  noteId String
-  tag    Tag  @relation(fields: [tagId], references: [id])
-  note   Note @relation(fields: [noteId], references: [id])
+  id      String @id @default(uuid())
+  TagId   String
+  NoteId  String
+  views   Int    @default(0)
+  usage   Int    @default(0)
+  likes   Int    @default(0)
+  dislikes Int    @default(0)
+  flags   Int    @default(0)
+  tag     Tag    @relation(fields: [TagId], references: [id])
+  note    Note   @relation(fields: [NoteId], references: [id])
 }
 
-model Box {
-  id              String   @id @default(cuid())
-  title           String
-  content         String
-  class           String
+// --- DEFAULTS ---
+
+model DefaultAnalogy {
+  id               String   @id @default(uuid())
+  UserId           String
+  AnalogyId        String   @unique
+  RealParagraphId  String?
+  lessonId         String?
+  order            Int
+  user             User     @relation(fields: [UserId], references: [id])
   
-  realParagraphId String?
-  realParagraph   RealParagraph? @relation(fields: [realParagraphId], references: [id])
+  activeInDefault  Analogy  @relation("ActiveAnalogy", fields: [AnalogyId], references: [id])
+  alternatives     Analogy[] @relation("AnalogyPool")
+}
+
+model DefaultParagraph {
+  id               String   @id @default(uuid())
+  UserId           String
+  ParagraphId      String   @unique
+  RealParagraphId  String
+  LessonId         String
+  order            Int
+  user             User     @relation(fields: [UserId], references: [id])
+  
+  activeInDefault  Paragraph @relation("ActiveParagraph", fields: [ParagraphId], references: [id])
+  alternatives     Paragraph[] @relation("ParagraphPool")
+}
+
+model DefaultSummery {
+  id               String   @id @default(uuid())
+  UserId           String
+  SummeryId        String   @unique
+  LessonId         String?
+  UnitId           String?
+  order            Int
+  user             User     @relation(fields: [UserId], references: [id])
+  
+  activeInDefault  Summery  @relation("ActiveSummery", fields: [SummeryId], references: [id])
+  alternatives     Summery[] @relation("SummeryPool")
+}
+
+model KeyWordDefault {
+  id                String   @id @default(uuid())
+  UserId            String
+  KeyWordsId        String   @unique
+  lessonId          String?
+  RealParagraphId   String?
+  order             Int
+  user              User     @relation(fields: [UserId], references: [id])
+  
+  activeInDefault   KeyWords @relation("ActiveKeywords", fields: [KeyWordsId], references: [id])
+  alternatives      KeyWords[] @relation("KeywordsPool")
+}
+
+model NoteDefault {
+  id               String   @id @default(uuid())
+  UserId           String
+  NoteId           String   @unique
+  LessonId         String
+  UnitId           String
+  order            Int
+  user             User     @relation(fields: [UserId], references: [id])
+  
+  activeInDefault  Note     @relation("ActiveNote", fields: [NoteId], references: [id])
+  alternatives     Note[]   @relation("NotePool")
+}
+
+// --- USER ACTIONS ---
+
+model UserAnalogy {
+  id        String       @id @default(uuid())
+  UserId    String
+  AnalogyId String
+  status    ActionStatus @default(neutral)
+  flaged    Boolean      @default(false)
+  skiped    Boolean      @default(false)
+  onuse     Boolean      @default(false)
+  lastSeenAt DateTime    @default(now())
+  user      User         @relation(fields: [UserId], references: [id])
+  analogy   Analogy      @relation(fields: [AnalogyId], references: [id])
+}
+
+model UserParagraph {
+  id          String       @id @default(uuid())
+  UserId      String
+  ParagraphId String
+  status      ActionStatus @default(neutral)
+  flaged      Boolean      @default(false)
+  skiped      Boolean      @default(false)
+  onuse       Boolean      @default(false)
+  lastSeenAt  DateTime     @default(now())
+  user        User         @relation(fields: [UserId], references: [id])
+  paragraph   Paragraph    @relation(fields: [ParagraphId], references: [id])
+}
+
+model UserSummery {
+  id        String       @id @default(uuid())
+  UserId    String
+  SummeryId String
+  status    ActionStatus @default(neutral)
+  flaged    Boolean      @default(false)
+  skiped    Boolean      @default(false)
+  onuse     Boolean      @default(false)
+  lastSeenAt DateTime    @default(now())
+  user      User         @relation(fields: [UserId], references: [id])
+  summery   Summery      @relation(fields: [SummeryId], references: [id])
+}
+
+model UserKeyWords {
+  id         String       @id @default(uuid())
+  UserId     String
+  KeyWordsId String
+  status     ActionStatus @default(neutral)
+  flaged     Boolean      @default(false)
+  skiped     Boolean      @default(false)
+  onuse      Boolean      @default(false)
+  lastSeenAt DateTime     @default(now())
+  user       User         @relation(fields: [UserId], references: [id])
+  keywords   KeyWords     @relation(fields: [KeyWordsId], references: [id])
+}
+
+model UserNote {
+  id      String       @id @default(uuid())
+  UserId  String
+  NoteId  String
+  status  ActionStatus @default(neutral)
+  flaged  Boolean      @default(false)
+  skiped  Boolean      @default(false)
+  onuse   Boolean      @default(false)
+  lastSeenAt DateTime   @default(now())
+  user    User         @relation(fields: [UserId], references: [id])
+  note    Note         @relation(fields: [NoteId], references: [id])
 }

@@ -1,27 +1,30 @@
-import { Lesson, DefaultParagraph, stringifiedContent, Unit, RealParagraph } from "./types";
-import { lessonOut,lesson,realParagraph } from "@/datarelated/data";
-export  function stringifyLesson(Lesson: Lesson,index:string = Lesson.index.toString(),depth: number = 0): stringifiedContent{
-    const paragraphs = (realParagraph as RealParagraph[]).filter(p => p.LessonId === Lesson.id);
+import { Prisma,Lesson,PrismaClient,Unit,RealParagraph } from "@prisma/client";
+import { stringifiedContent } from "./types";
+import { prisma } from "./prisma";
+export  async function stringifyLesson(Lesson: Lesson,index:string = Lesson.index.toString(),depth: number = 0): Promise<stringifiedContent>{
+    const paragraphs = await prisma.realParagraph.findMany({ where: { LessonId: Lesson.id } })
     let text = `
        ${Lesson.title}\n` + paragraphs.map(p => p.content).join("\n");
-       const sublessons = (lesson as Lesson[]).filter(l => l.ParentLessonId === Lesson.id);
+       const sublessons = await prisma.lesson.findMany({ where: { ParentLessonId: Lesson.id } })
        if(sublessons.length > 0) depth ++;
        for (const sub of sublessons) {
-        const subc= stringifyLesson(sub,`${index}.${sub.index}`, depth);
+        const subc= await stringifyLesson(sub,`${index}.${sub.index}`, depth);
         text += `\n${subc.content}`;
         depth = Math.max(depth, subc.depth);
     }
     return { content: text, depth};
 }
 
-export function stringifyUnit(unit: Unit): stringifiedContent {
+export async function stringifyUnit(unit:Prisma.UnitGetPayload<{
+   include: { lessons: true }
+}>):Promise<stringifiedContent> {
     let text = `Unit: ${unit.title}\n`;
- const lessonsInUnit = (lesson as Lesson[]).filter(l => l.unitId === unit.id) as Lesson[];
-    lessonsInUnit.forEach(lesson => {
-        text += stringifyLesson(lesson).content + "\n";
+ const lessonsInUnit = unit.lessons
+    lessonsInUnit.forEach(async lesson => {
+        text += (await stringifyLesson(lesson)).content + "\n";
     });
     return { content: text, depth: 10 };
 }
-export function stringifyDefaultParagraph(paragraph: RealParagraph):stringifiedContent {
+export function stringifyDefaultParagraph(paragraph:RealParagraph ):stringifiedContent {
     return { content: paragraph.content, depth: 0 };
 }
