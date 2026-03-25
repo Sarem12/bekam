@@ -110,7 +110,7 @@ model RealParagraph {
   lesson    Lesson   @relation(fields: [LessonId], references: [id])
   analogies Analogy[]
   keywords  KeyWords[]
-  
+  paragraphs DefaultParagraph[]
   views     Int      @default(0)
   usage     Int      @default(0)
   flags     Int      @default(0)
@@ -179,8 +179,8 @@ model Paragraph {
   lesson             Lesson   @relation(fields: [LessonId], references: [id])
   
   activeInSlots      DefaultParagraph? @relation("ActiveParagraph")
-  parentSlot         DefaultParagraph? @relation("ParagraphPool", fields: [defaultParagraphId], references: [id])
-  defaultParagraphId String?
+  parentSlot         DefaultParagraph @relation("ParagraphPool", fields: [defaultParagraphId], references: [id])
+  defaultParagraphId String
 
   tagsParagraph      TagRelatorParagraph[]
   userActions        UserParagraph[]
@@ -339,14 +339,15 @@ model DefaultAnalogy {
 model DefaultParagraph {
   id               String   @id @default(uuid())
   UserId           String
-  ParagraphId      String   @unique
+  ParagraphId      String?  @unique
   RealParagraphId  String
   LessonId         String
   order            Int
   user             User     @relation(fields: [UserId], references: [id])
   
-  activeInDefault  Paragraph @relation("ActiveParagraph", fields: [ParagraphId], references: [id])
+  activeInDefault  Paragraph? @relation("ActiveParagraph", fields: [ParagraphId], references: [id])
   alternatives     Paragraph[] @relation("ParagraphPool")
+  realParagraph    RealParagraph @relation(fields: [RealParagraphId], references: [id])
 }
 
 model DefaultSummery {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginAction } from "@/app/actions/auth";
+import { loginAction } from "@/lib/service/admin/auth";
 import { authUtils } from "@/lib/localdata";
 import { User } from "@prisma/client";
 

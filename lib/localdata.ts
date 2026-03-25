@@ -4,7 +4,7 @@ export const authUtils = {
   // SAVE ID: Sets a cookie that lasts 7 days
   saveId: (id: string) => {
     if (typeof window !== "undefined") {
-      document.cookie = `bekam_user_id=${id}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `session_token=${id}; path=/; max-age=604800; SameSite=Lax`;
     }
   },
 
@@ -12,7 +12,7 @@ export const authUtils = {
   getId: () => {
     if (typeof window !== "undefined") {
       const value = `; ${document.cookie}`;
-      const parts = value.split(`; bekam_user_id=`);
+      const parts = value.split(`; session_token=`);
       if (parts.length === 2) return parts.pop()?.split(';').shift();
     }
     return null;
@@ -21,7 +21,7 @@ export const authUtils = {
   // CLEAR ID: Used for Logout
   clearId: () => {
     if (typeof window !== "undefined") {
-      document.cookie = "bekam_user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      document.cookie = "session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
     }
   }
 };

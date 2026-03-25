@@ -109,8 +109,14 @@ export async function ChangeToBestParagraph(defaultId: string, userId: string) {
     if (!slot) return null;
     const rejTags = (slot.activeInDefault as any)?.tagsParagraph.map((t: any) => t.TagId) || [];
     const userTags = await prisma.userTag.findMany({ where: { UserId: userId } });
+    const paragraphIdFilter = slot.ParagraphId ? { not: slot.ParagraphId } : undefined;
+
     const candidates = await prisma.paragraph.findMany({
-        where: { MasterParagraphId: slot.RealParagraphId, id: { not: slot.ParagraphId }, userActions: { none: { UserId: userId, skiped: true } } },
+        where: {
+            MasterParagraphId: slot.RealParagraphId,
+            id: paragraphIdFilter,
+            userActions: { none: { UserId: userId, skiped: true } }
+        },
         include: { tagsParagraph: true }
     });
     const winner = pickWinner(candidates.map(item => ({ item, ...calculateScore(item, 'tagsParagraph', userTags, rejTags) })));

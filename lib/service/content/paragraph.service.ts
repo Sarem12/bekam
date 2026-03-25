@@ -36,45 +36,22 @@ export async function GetParagraph(UserId: string, RealParagraphId: string) {
     if (response.error) throw new Error(response.error);
 
     // 4. Create the new AI Paragraph and link it to the RealParagraph
-    return await prisma.$transaction(async (tx) => {
+    const paragraphText = (typeof response.content === "string" && response.content.trim())
+        ? response.content
+        : (typeof (response as any).personalized === "string" && (response as any).personalized.trim())
+            ? (response as any).personalized
+            : "Generated paragraph content";
+
+    const result = await prisma.$transaction(async (tx) => {
         // Find or create the Slot (DefaultParagraph)
         let slot = await tx.defaultParagraph.findFirst({
             where: { UserId, RealParagraphId }
         });
 
-        const newParagraph = await tx.paragraph.create({
-            data: {
-                content: response.content,
-                LessonId: source.LessonId,
-                MasterParagraphId: RealParagraphId, // Linking to RealParagraph
-                views: 1,
-                usage: 1,
-                tagsParagraph: {
-                    create: (response.tagsUsed as string[] || []).map(tagName => ({
-                        tag: {
-                            connectOrCreate: {
-                                where: { name: tagName },
-                                create: { name: tagName }
-                            }
-                        }
-                    }))
-                },
-                userActions: {
-                    create: { UserId, onuse: true }
-                }
-            }
-        });
-
-        if (slot) {
-            await tx.defaultParagraph.update({
-                where: { id: slot.id },
-                data: { ParagraphId: newParagraph.id }
-            });
-        } else {
-            await tx.defaultParagraph.create({
+        if (!slot) {
+            slot = await tx.defaultParagraph.create({
                 data: {
                     UserId,
-                    ParagraphId: newParagraph.id,
                     RealParagraphId,
                     LessonId: source.LessonId,
                     order: 0
@@ -82,8 +59,54 @@ export async function GetParagraph(UserId: string, RealParagraphId: string) {
             });
         }
 
-        return { ...response, id: newParagraph.id };
+        // Create paragraph using the valid slot id (required by FK)
+        const newParagraph = await tx.paragraph.create({
+            data: {
+                content: paragraphText,
+                LessonId: source.LessonId,
+                MasterParagraphId: RealParagraphId,
+                defaultParagraphId: slot.id,
+                views: 1,
+                usage: 1
+            }
+        });
+
+        await tx.defaultParagraph.update({
+            where: { id: slot.id },
+            data: { ParagraphId: newParagraph.id }
+        });
+
+        return { ...response, id: newParagraph.id, __slotId: slot.id, __newParagraphId: newParagraph.id };
     });
+
+    // Do tags and userParagraph after tx so we avoid transaction timeout in long loops
+    const tags = (response.tagsUsed as string[] || []).filter(Boolean);
+    for (const tagName of tags) {
+        const tagRecord = await prisma.tag.upsert({
+            where: { name: tagName },
+            update: {},
+            create: { name: tagName }
+        });
+
+        await prisma.tagRelatorParagraph.create({
+            data: {
+                TagId: tagRecord.id,
+                ParagraphId: result.__newParagraphId
+            }
+        });
+    }
+
+    await prisma.userParagraph.create({
+        data: {
+            UserId,
+            ParagraphId: result.__newParagraphId,
+            onuse: true,
+            status: "neutral",
+            skiped: false
+        }
+    });
+
+    return { content: response.content, id: result.__newParagraphId };
 }
 
 /**
@@ -94,10 +117,12 @@ export async function ChangeParagraph(DefaultParagraphId: string, userId: string
     if (!slot) return { error: "Slot not found" };
 
     // 1. Mark current version as skipped for this user
-    await prisma.userParagraph.updateMany({
-        where: { UserId: userId, ParagraphId: slot.ParagraphId },
-        data: { skiped: true, onuse: false }
-    });
+    if (slot.ParagraphId) {
+        await prisma.userParagraph.updateMany({
+            where: { UserId: userId, ParagraphId: slot.ParagraphId },
+            data: { skiped: true, onuse: false }
+        });
+    }
 
     // 2. Try to find another high-scoring Paragraph linked to this RealParagraph
     const best = await ChangeToBestParagraph(DefaultParagraphId, userId);

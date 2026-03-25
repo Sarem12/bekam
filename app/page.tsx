@@ -7,8 +7,8 @@ import { redirect } from "next/navigation";
 export default async function Home() {
   try {
     const cookieStore = await cookies();
-    const userid = cookieStore.get("bekam_user_id")?.value;
-
+    const userid = cookieStore.get("session_token")?.value;
+   
     if (!userid) {
       redirect("/login");
     }
@@ -41,6 +41,7 @@ export default async function Home() {
                 grade={book.grade}
                 imageUrl={book.imgUrl || "/placeholder-book.jpg"}
                 title={`${book.subject} - Grade ${book.grade}`}
+                id={book.id}
               />
             ))}
           </div>
@@ -48,6 +49,6 @@ export default async function Home() {
       </div>
     );
   } catch (e: any) {
-    return <div className="p-10 text-red-500 font-mono">BOOT_ERROR: {e.message}</div>;
+
   }
 }

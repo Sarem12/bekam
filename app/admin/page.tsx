@@ -1,10 +1,39 @@
+
 import { getAllBooks } from "@/lib/service";
-import { deleteBook } from "@/app/actions/book"; // You'll need to create this simple action
+import { deleteBook, createBook } from "@/lib/service/admin";
 import AddBookModal from "@/components/admin/AddBookModal";
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 
 export default async function AdminPage() {
   const books = await getAllBooks();
+
+  // Named Server Action for better reliability
+  async function handleDelete(formData: FormData) {
+    "use server";
+    const id = formData.get("bookId") as string;
+    await deleteBook(id);
+    revalidatePath("/admin"); // Refresh the list instantly
+  }
+
+  async function handleCreateBook(formData: FormData) {
+    "use server";
+    const subject = (formData.get("subject") as string)?.trim();
+    const grade = Number(formData.get("grade"));
+    const imgUrl = (formData.get("imgUrl") as string) || "/images/default.jpg";
+
+    if (!subject || Number.isNaN(grade)) {
+      throw new Error("Invalid book payload");
+    }
+
+    await createBook({
+      subject,
+      grade,
+      imgUrl,
+    });
+
+    revalidatePath("/admin");
+  }
 
   return (
     <div className="p-10 text-white bg-[#0f172a] min-h-screen">
@@ -13,45 +42,54 @@ export default async function AdminPage() {
           <h1 className="text-3xl font-bold text-blue-400">Curriculum Manager</h1>
           <p className="text-slate-400 text-sm">Manage textbooks and AI content nodes.</p>
         </div>
-        {/* Our Popup Component */}
-        <AddBookModal />
+        <AddBookModal onCreateBook={handleCreateBook} />
       </header>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
         <table className="w-full text-left">
           <thead className="bg-slate-900/50 border-b border-slate-700">
             <tr>
               <th className="p-4 text-xs font-semibold text-slate-400 uppercase">Book Details</th>
               <th className="p-4 text-xs font-semibold text-slate-400 uppercase text-center">Grade</th>
-              <th className="p-4 text-xs font-semibold text-slate-400 uppercase text-right">Actions</th>
+              <th className="p-4 text-xs font-semibold text-slate-400 uppercase text-right px-6">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
             {books.map((book) => (
-              <tr key={book.id} className="hover:bg-slate-700/30 transition-colors">
+              <tr key={book.id} className="hover:bg-slate-700/30 transition-all group">
                 <td className="p-4">
-                  <div className="font-bold text-slate-200">{book.subject}</div>
-                  <div className="text-xs text-slate-500 font-mono">{book.id}</div>
+                  <div className="font-bold text-slate-200 group-hover:text-blue-300 transition-colors text-lg">
+                    {book.subject}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono mt-1 opacity-50">
+                    ID: {book.id}
+                  </div>
                 </td>
                 <td className="p-4 text-center">
-                  <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-xs border border-blue-500/20">
+                  <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-xs border border-blue-500/20 font-medium">
                     Grade {book.grade}
                   </span>
                 </td>
-                <td className="p-4 flex justify-end gap-3">
-                  <Link 
-                    href={`/admin/book/${book.id}`}
-                    className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition-all"
-                  >
-                    Edit Units
-                  </Link>
-                  
-                  {/* Delete Action */}
-                  <form action={async () => { "use server"; await deleteBook(book.id); }}>
-                    <button className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-4 py-2 rounded-lg text-sm transition-all border border-red-500/20">
-                      Delete
-                    </button>
-                  </form>
+                <td className="p-4 px-6">
+                   <div className="flex justify-end gap-3">
+                      <Link 
+                        href={`/admin/book/${book.id}`}
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition-all flex items-center"
+                      >
+                        Edit Units
+                      </Link>
+                      
+                      {/* Fixed Server Action Form */}
+                      <form action={handleDelete}>
+                        <input type="hidden" name="bookId" value={book.id} />
+                        <button 
+                          type="submit"
+                          className="bg-red-500/10 hover:bg-red-600 hover:text-white text-red-500 px-4 py-2 rounded-lg text-sm transition-all border border-red-500/20"
+                        >
+                          Delete
+                        </button>
+                      </form>
+                   </div>
                 </td>
               </tr>
             ))}

@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { createBook } from "@/app/actions/book";
+import { useState, FormEvent } from "react";
+
+interface AddBookModalProps {
+  onCreateBook: (formData: FormData) => Promise<void>;
+}
 
 interface UnitData {
   title: string;
@@ -15,9 +18,20 @@ interface UnitData {
   }[];
 }
 
-export default function AddBookModal() {
+export default function AddBookModal({ onCreateBook }: AddBookModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [units, setUnits] = useState<UnitData[]>([]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    formData.set("units", JSON.stringify(units));
+
+    await onCreateBook(formData);
+
+    setIsOpen(false);
+    setUnits([]);
+  };
 
   const addUnit = () => {
     setUnits([...units, { title: "", lessons: [] }]);
@@ -94,20 +108,7 @@ export default function AddBookModal() {
               <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">✕</button>
             </div>
 
-            <form 
-              action={async (formData) => {
-                const bookData = {
-                  subject: formData.get("subject") as string,
-                  grade: parseInt(formData.get("grade") as string),
-                  imgUrl: formData.get("imgUrl") as string || "/images/default.jpg",
-                  units: units.filter(unit => unit.title.trim() !== "")
-                };
-                await createBook(bookData);
-                setIsOpen(false);
-                setUnits([]);
-              }} 
-              className="p-6 space-y-6"
-            >
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* Book Details */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">Book Details</h3>

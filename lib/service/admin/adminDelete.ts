@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client/extension";
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 export async function deleteBook(bookId: string) {
   try {
     await prisma.book.delete({
