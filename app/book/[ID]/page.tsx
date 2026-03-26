@@ -102,8 +102,11 @@ export default function BookPage() {
 
                 return (
                   <div key={rp.id} className="mb-4 ml-4">
+                    
                     <div className="text-base text-slate-100 mb-2">
+                      <ReactMarkdown>
                       {chosenParagraph?.content || rp.content || "No paragraph content available"}
+                      </ReactMarkdown>
                     </div>
 
                     {rp.analogies?.map((a: any) => (
