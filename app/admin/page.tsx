@@ -36,10 +36,10 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="p-10 text-white bg-[#0f172a] min-h-screen">
+    <div className="p-10 text-white bg-[#212121] min-h-screen">
       <header className="mb-8 flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-blue-400">Curriculum Manager</h1>
+          <h1 className="text-3xl font-bold text-slate-100">Curriculum Manager</h1>
           <p className="text-slate-400 text-sm">Manage textbooks and AI content nodes.</p>
         </div>
         <AddBookModal onCreateBook={handleCreateBook} />
@@ -47,7 +47,7 @@ export default async function AdminPage() {
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
         <table className="w-full text-left">
-          <thead className="bg-slate-900/50 border-b border-slate-700">
+          <thead className=" border-b border-slate-700">
             <tr>
               <th className="p-4 text-xs font-semibold text-slate-400 uppercase">Book Details</th>
               <th className="p-4 text-xs font-semibold text-slate-400 uppercase text-center">Grade</th>
@@ -58,7 +58,7 @@ export default async function AdminPage() {
             {books.map((book) => (
               <tr key={book.id} className="hover:bg-slate-700/30 transition-all group">
                 <td className="p-4">
-                  <div className="font-bold text-slate-200 group-hover:text-blue-300 transition-colors text-lg">
+                  <div className="font-bold text-slate-200 group-hover:text-slate-100 transition-colors text-lg">
                     {book.subject}
                   </div>
                   <div className="text-[10px] text-slate-500 font-mono mt-1 opacity-50">
@@ -66,7 +66,7 @@ export default async function AdminPage() {
                   </div>
                 </td>
                 <td className="p-4 text-center">
-                  <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-xs border border-blue-500/20 font-medium">
+                  <span className="bg-slate-700/30 text-slate-100 px-3 py-1 rounded-full text-xs border border-slate-600/40 font-medium">
                     Grade {book.grade}
                   </span>
                 </td>

@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { GetParagraph } from "@/lib/service/content/paragraph.service";
 import { GetAnalogy } from "@/lib/service/content/analogy.service";
+import { Book } from "@prisma/client";
+import { FullBookContent } from "../types";
 /**
  * GET ALL BOOKS
  * Fetches all books with a count of their units for the Home Page
@@ -45,7 +47,7 @@ export async function getBookById(bookId: string) {
     }
   });
 }
-export async function getFullBookContent(bookId: string, userId: string) {
+export async function getFullBookContent(bookId: string, userId: string):Promise<FullBookContent | null> {
   const book = await prisma.book.findUnique({
     where: { id: bookId },
     include: {
@@ -110,7 +112,7 @@ export async function getFullBookContent(bookId: string, userId: string) {
               keywords: {
                 where: {
                   activeInSlots: {
-                    is: { UserId: userId }
+                    is: { UserId: userId,  }
                   }
                 },
                 include: { activeInSlots: true }
@@ -119,9 +121,11 @@ export async function getFullBookContent(bookId: string, userId: string) {
             }
           },
           summeries: {
+            
             where: {
+              
               activeInSlots: {
-                is: { UserId: userId }
+                is: { UserId: userId, onuse: true }
               }
             }
           }
@@ -216,4 +220,5 @@ export async function getFullBookContent(bookId: string, userId: string) {
   }
 
   return book;
+
 }

@@ -334,6 +334,7 @@ model DefaultAnalogy {
   
   activeInDefault  Analogy  @relation("ActiveAnalogy", fields: [AnalogyId], references: [id])
   alternatives     Analogy[] @relation("AnalogyPool")
+  onuse           Boolean   @default(false)
 }
 
 model DefaultParagraph {
@@ -348,6 +349,7 @@ model DefaultParagraph {
   activeInDefault  Paragraph? @relation("ActiveParagraph", fields: [ParagraphId], references: [id])
   alternatives     Paragraph[] @relation("ParagraphPool")
   realParagraph    RealParagraph @relation(fields: [RealParagraphId], references: [id])
+  onuse           Boolean   @default(true)
 }
 
 model DefaultSummery {
@@ -361,6 +363,7 @@ model DefaultSummery {
   
   activeInDefault  Summery  @relation("ActiveSummery", fields: [SummeryId], references: [id])
   alternatives     Summery[] @relation("SummeryPool")
+  onuse           Boolean   @default(false)
 }
 
 model KeyWordDefault {
@@ -374,6 +377,7 @@ model KeyWordDefault {
   
   activeInDefault   KeyWords @relation("ActiveKeywords", fields: [KeyWordsId], references: [id])
   alternatives      KeyWords[] @relation("KeywordsPool")
+  onuse            Boolean   @default(false)
 }
 
 model NoteDefault {
@@ -387,6 +391,7 @@ model NoteDefault {
   
   activeInDefault  Note     @relation("ActiveNote", fields: [NoteId], references: [id])
   alternatives     Note[]   @relation("NotePool")
+  onuse           Boolean   @default(false)
 }
 
 // --- USER ACTIONS ---

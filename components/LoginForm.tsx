@@ -50,7 +50,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0f172a] text-white p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#212121] text-white p-4">
       <form onSubmit={handleSubmit} className="space-y-4 w-80">
         {error && <div className="text-red-400">{error}</div>}
 
@@ -69,7 +69,7 @@ export default function LoginForm() {
           className="w-full p-3 bg-slate-800"
         />
 
-        <button disabled={isPending} className="w-full p-3 bg-blue-600">
+        <button disabled={isPending} className="w-full p-3 bg-slate-700 hover:bg-slate-600">
           {isPending ? "Loading..." : "Login"}
         </button>
       </form>

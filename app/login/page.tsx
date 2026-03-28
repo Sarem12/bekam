@@ -11,7 +11,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <header className="text-center mb-8">
-          <h1 className="text-4xl font-black text-blue-500 tracking-tighter">BEKAM AI</h1>
+          <h1 className="text-4xl font-black text-slate-100 tracking-tighter">BEKAM AI</h1>
           <p className="text-slate-400 mt-2">Log in to access your curriculum</p>
         </header>
         

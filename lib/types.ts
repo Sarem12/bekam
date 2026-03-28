@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { JSONValue } from "next/dist/server/config-shared";
 
 export type PromptType = 'analogy' | 'keyword' | 'summary' | 'paragraph' | 'note';
@@ -368,3 +369,50 @@ export type Box = {
     content:string;
     class:string; // classing for css
 }
+const fullBookArgs = Prisma.validator<Prisma.BookDefaultArgs>()({
+  include: {
+    units: {
+      include: {
+        lessons: {
+          orderBy: { index: 'asc' },
+          include: {
+            realParagraphs: {
+              orderBy: { order: 'asc' },
+              include: {
+                paragraphs: {
+                  where: { UserId: "some-user-id" }, // Type-level placeholder
+                  include: { activeInDefault: true }
+                },
+                analogies: {
+                  include: { activeInSlots: true }
+                },
+                keywords: {
+                  include: { activeInSlots: true }
+                }
+              }
+            },
+            summeries: { 
+              include: { activeInSlots: true } 
+            },
+            notes: { 
+              include: { activeInSlots: true } 
+            },
+            analogies: {
+              include: { activeInSlots: true }
+            },
+            keywords: {
+              include: { activeInSlots: true }
+            },
+            SubLessons: true
+          }
+        },
+        summeries: {
+          include: { activeInSlots: true }
+        }
+      }
+    }
+  }
+});
+
+// 2. Create the type from that validator
+export type FullBookContent = Prisma.BookGetPayload<typeof fullBookArgs>;

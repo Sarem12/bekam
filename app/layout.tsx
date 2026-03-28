@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
+import { Header } from "@/components/Header";
+import { getUserById } from "@/lib/service";
 import "./globals.css";
 
 // ❌ Removed AuthGuard - The Middleware now handles the "Gatekeeping"
@@ -20,17 +23,18 @@ export const metadata: Metadata = {
   description: "Curriculum Management System",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const userId = cookieStore.get("session_token")?.value;
+  const user = userId ? await getUserById(userId) : null;
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-950`}>
-        {/* Since Middleware protects /admin, we don't need a wrapper here.
-            The children will only render if the Middleware allows it.
-        */}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-100`}>
+        {user && <Header user={user} />}
         {children}
       </body>
     </html>

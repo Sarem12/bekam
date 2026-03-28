@@ -1,36 +1,24 @@
 import { getAllBooks, getUserById } from "@/lib/service";
 import { BookCard } from "@/components/BookCard";
 import { cookies } from "next/headers";
-import { Header } from "@/components/Header";
 import { redirect } from "next/navigation";
 
 export default async function Home() {
   try {
-    const cookieStore = await cookies();
-    const userid = cookieStore.get("session_token")?.value;
-   
-    if (!userid) {
-      redirect("/login");
-    }
 
-    const [books, user] = await Promise.all([
+   
+    
+
+    const [books] = await Promise.all([
       getAllBooks(),
-      getUserById(userid)
+     
     ]);
 
     // TYPE FIX: Guard clause ensures user is not null
-    if (!user) {
-      return (
-        <div className="p-10 text-white bg-slate-900 min-h-screen">
-          Profile not found. Please <a href="/login" className="underline">log in again</a>.
-        </div>
-      );
-    }
+   
 
     return (
-      <div className="bg-slate-900 min-h-screen">
-        <Header user={user} />
-        
+      <div className=" min-h-screen">
         <main className="p-8">
           <h2 className="text-2xl font-bold text-white mb-6">Your Textbooks</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

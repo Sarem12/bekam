@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginAction } from "@/lib/service/admin/auth";
 import { authUtils } from "@/lib/localdata";
 import { User } from "@prisma/client";
 
 interface Headerelements {
-   user: User
+   user?: User | null
 }
 export function Header({ user }: Headerelements) {
    const router = useRouter();
@@ -17,7 +15,7 @@ return (
     <header>
         <h1>Bekam</h1>
         <img src={user.imgUrl||""}/>
-        <span style={{ cursor: "pointer", color: "blue" }} onClick={() => {
+        <span style={{ cursor: "pointer", color: "#e2e8f0" }} onClick={() => {
             authUtils.clearId();
             router.replace("/login");
         }}>

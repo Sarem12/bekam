@@ -115,15 +115,15 @@ export default function AddBookModal({ onCreateBook }: AddBookModalProps) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs uppercase text-slate-400 mb-1 font-semibold">Subject Name</label>
-                    <input name="subject" required className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500" placeholder="e.g. Biology" />
+                    <input name="subject" required className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-slate-400" placeholder="e.g. Biology" />
                   </div>
                   <div>
                     <label className="block text-xs uppercase text-slate-400 mb-1 font-semibold">Grade Level</label>
-                    <input name="grade" type="number" required className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500" placeholder="10" />
+                    <input name="grade" type="number" required className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-slate-400" placeholder="10" />
                   </div>
                   <div>
                     <label className="block text-xs uppercase text-slate-400 mb-1 font-semibold">Cover Image URL</label>
-                    <input name="imgUrl" required className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-blue-500" placeholder="/images/biology.jpg" />
+                    <input name="imgUrl" required className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-slate-400" placeholder="/images/biology.jpg" />
                   </div>
                 </div>
               </div>
@@ -132,18 +132,18 @@ export default function AddBookModal({ onCreateBook }: AddBookModalProps) {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-white">Units</h3>
-                  <button type="button" onClick={addUnit} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm">+ Add Unit</button>
+                  <button type="button" onClick={addUnit} className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-sm">+ Add Unit</button>
                 </div>
                 
                 {units.map((unit, unitIndex) => (
-                  <div key={unitIndex} className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                  <div key={unitIndex} className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                     <div className="flex justify-between items-center mb-3">
                       <input
                         value={unit.title}
                         onChange={(e) => updateUnit(unitIndex, e.target.value)}
                         placeholder="Unit Title"
                         required
-                        className="flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white outline-none focus:border-blue-500 mr-2"
+                        className="flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white outline-none focus:border-slate-400 mr-2"
                       />
                       <button type="button" onClick={() => removeUnit(unitIndex)} className="text-red-400 hover:text-red-300">Remove</button>
                     </div>
@@ -163,7 +163,7 @@ export default function AddBookModal({ onCreateBook }: AddBookModalProps) {
                               onChange={(e) => updateLesson(unitIndex, lessonIndex, e.target.value)}
                               placeholder="Lesson Title"
                               required
-                              className="flex-1 bg-slate-700 border border-slate-500 rounded px-2 py-1 text-white outline-none focus:border-blue-500 mr-2 text-sm"
+                              className="flex-1 bg-slate-700 border border-slate-500 rounded px-2 py-1 text-white outline-none focus:border-slate-400 mr-2 text-sm"
                             />
                             <button type="button" onClick={() => removeLesson(unitIndex, lessonIndex)} className="text-red-400 hover:text-red-300 text-sm">Remove</button>
                           </div>
@@ -182,7 +182,7 @@ export default function AddBookModal({ onCreateBook }: AddBookModalProps) {
                                   onChange={(e) => updateParagraph(unitIndex, lessonIndex, paragraphIndex, e.target.value)}
                                   placeholder="Paragraph content..."
                                   required
-                                  className="flex-1 bg-slate-700 border border-slate-500 rounded px-2 py-1 text-white outline-none focus:border-blue-500 text-sm "
+                                  className="flex-1 bg-slate-700 border border-slate-500 rounded px-2 py-1 text-white outline-none focus:border-slate-400 text-sm "
                                 />
                                 <button type="button" onClick={() => removeParagraph(unitIndex, lessonIndex, paragraphIndex)} className="text-red-400 hover:text-red-300 text-xs self-start">×</button>
                               </div>
@@ -197,7 +197,7 @@ export default function AddBookModal({ onCreateBook }: AddBookModalProps) {
 
               <div className="flex gap-3 mt-6">
                 <button type="button" onClick={() => setIsOpen(false)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-semibold">Cancel</button>
-                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-semibold">Save Book</button>
+                <button type="submit" className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-semibold">Save Book</button>
               </div>
             </form>
           </div>

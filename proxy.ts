@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
 
   // 1. BYPASS FOR AUTH PAGES (Prevents Firefox Redirect Error)
   if (pathname.startsWith('/login') || pathname.startsWith('/signup')) {
-    if (sessionToken) return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (sessionToken) return NextResponse.redirect(new URL('/', request.url));
     return NextResponse.next();
   }
 
@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
 
   // 4. ADMIN GUARD
   if (pathname.startsWith('/admin') && user.role !== "ADMIN") {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   // 5. DATA RESERVING (Safe Header Injection)
