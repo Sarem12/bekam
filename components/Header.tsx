@@ -33,7 +33,7 @@ export function Header({ user }: HeaderProps) {
   };
 
   return (
-    <header className="flex items-center justify-between gap-4 bg-slate-950 px-5 py-4 shadow-lg shadow-slate-950/20">
+    <header className="flex items-center justify-between gap-6 bg-slate-950 px-7 py-1 shadow-lg shadow-slate-950/20">
       <div className="flex items-center gap-3">
        
         <div>
@@ -63,12 +63,12 @@ export function Header({ user }: HeaderProps) {
                 <img
                   src={user.imgUrl}
                   alt={user.first || user.username || user.email || "Profile"}
-                  className="h-10 w-10 rounded-full object-cover hover:bg-slate-700/20"
+                  className="h-8 w-8 rounded-full object-cover hover:bg-slate-700/20"
                   onError={() => setHasImageError(true)}
                 />
               ) : (
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 text-slate-200 hover:bg-slate-600 transition">
-                  <UserIcon className="h-5 w-5" />
+                  <UserIcon className="h-4 w-4" />
                 </span>
               )}
          
@@ -92,9 +92,9 @@ export function Header({ user }: HeaderProps) {
                     )}
                     <div>
                       <p className="text-sm font-semibold text-slate-100">
-                        {user.first || user.username || user.email || "Account"}
+                        {user.first || user.username}
                       </p>
-                      <p className="text-xs text-slate-400">Account menu</p>
+                      <p className="text-xs text-slate-400">{user.email}</p>
                     </div>
                   </div>
                 </div>

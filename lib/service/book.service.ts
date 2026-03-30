@@ -1,8 +1,6 @@
 "use server";
 // lib/services/book.service.ts
 import { prisma } from "@/lib/prisma";
-import { GetParagraph } from "@/lib/service/content/paragraph.service";
-import { GetAnalogy } from "@/lib/service/content/analogy.service";
 import { Book } from "@prisma/client";
 import { FullBookContent } from "../types";
 /**
@@ -72,7 +70,10 @@ export async function getFullBookContent(bookId: string, userId: string):Promise
                       }
                     },
                     include: {
-                      activeInSlots: true
+                      activeInSlots: true,
+                      userActions: {
+                        where: { UserId: userId }
+                      }
                     }
                   },
                   keywords: {
@@ -107,7 +108,12 @@ export async function getFullBookContent(bookId: string, userId: string):Promise
                     is: { UserId: userId }
                   }
                 },
-                include: { activeInSlots: true }
+                include: {
+                  activeInSlots: true,
+                  userActions: {
+                    where: { UserId: userId }
+                  }
+                }
               },
               keywords: {
                 where: {
@@ -136,84 +142,31 @@ export async function getFullBookContent(bookId: string, userId: string):Promise
 
   if (!book) return null;
 
-  // Fallback generation behavior with content services
+  // Do not generate missing analogies automatically on page load.
+  // The user should request generation explicitly through the UI.
   for (const unit of book.units ?? []) {
     for (const lesson of unit.lessons ?? []) {
-      if (!lesson.analogies?.length) {
-        const gen = await GetAnalogy(userId, lesson.id, 'lesson');
-        if (gen && !gen.error) {
-          lesson.analogies = lesson.analogies ?? [];
-          lesson.analogies.push({
-            id: gen.id,
-            content: gen.content,
-            logic: gen.logic || "",
-            lessonId: lesson.id,
-            RealParagraphId: null,
-            views: 0,
-            usage: 0,
-            createdAt: new Date(),
-            activeInSlots: null,
-            defaultAnalogyId: null,
-          } as any);
+      for (const analogy of lesson.analogies ?? []) {
+        await prisma.analogy.update({
+          where: { id: analogy.id },
+          data: { views: { increment: 1 } }
+        });
+      }
+
+      for (const rp of lesson.realParagraphs ?? []) {
+        const existingParagraph = rp.paragraphs?.find((p: any) => p.activeInDefault)?.activeInDefault;
+        if (existingParagraph) {
+          await prisma.paragraph.update({
+            where: { id: existingParagraph.id },
+            data: { views: { increment: 1 } }
+          });
         }
-      } else {
-        // Increment views for existing lesson analogies
-        for (const analogy of lesson.analogies) {
+
+        for (const analogy of rp.analogies ?? []) {
           await prisma.analogy.update({
             where: { id: analogy.id },
             data: { views: { increment: 1 } }
           });
-        }
-      }
-
-      for (const rp of lesson.realParagraphs ?? []) {
-        const hasActiveParagraph = rp.paragraphs?.some((p: any) => p.activeInDefault);
-        if (!hasActiveParagraph) {
-          const fallbackParagraph = await GetParagraph(userId, rp.id);
-          if (fallbackParagraph && !('error' in fallbackParagraph)) {
-            rp.paragraphs = rp.paragraphs ?? [];
-            rp.paragraphs.push({
-              id: fallbackParagraph.id,
-              content: fallbackParagraph.content,
-              activeInDefault: { content: fallbackParagraph.content },
-            } as any);
-          }
-        } else {
-          // Increment views for existing default paragraph
-          const existingParagraph = rp.paragraphs.find((p: any) => p.activeInDefault)?.activeInDefault;
-          if (existingParagraph) {
-            await prisma.paragraph.update({
-              where: { id: existingParagraph.id },
-              data: { views: { increment: 1 } }
-            });
-          }
-        }
-
-        if (!rp.analogies?.length) {
-          const genAnalogy = await GetAnalogy(userId, rp.id, 'paragraph');
-          if (genAnalogy && !genAnalogy.error) {
-            rp.analogies = rp.analogies ?? [];
-            rp.analogies.push({
-              id: genAnalogy.id,
-              content: genAnalogy.content,
-              logic: genAnalogy.logic || "",
-              lessonId: null,
-              RealParagraphId: rp.id,
-              views: 0,
-              usage: 0,
-              createdAt: new Date(),
-              activeInSlots: null,
-              defaultAnalogyId: null,
-            } as any);
-          }
-        } else {
-          // Increment views for existing paragraph analogies
-          for (const analogy of rp.analogies) {
-            await prisma.analogy.update({
-              where: { id: analogy.id },
-              data: { views: { increment: 1 } }
-            });
-          }
         }
       }
     }

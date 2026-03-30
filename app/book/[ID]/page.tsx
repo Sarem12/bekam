@@ -7,15 +7,8 @@ import { authUtils } from "@/lib/localdata";
 import ReactMarkdown from "react-markdown";
 import { Book } from "@prisma/client";
 import { FullBookContent } from "@/lib/types";
-
-
-
-const InfoCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="border border-slate-700 bg-slate-800/80 rounded-xl p-3 mb-3">
-    <h4 className="text-sm font-semibold text-emerald-300 mb-1">{title}</h4>
-    <div className="text-sm text-slate-100">{children}</div>
-  </div>
-);
+import { Analogy } from "@/components/InfoCards/Analogy";
+import { Paragraph } from "@/components/InfoCards/Paragraph";
 
 export default function BookPage() {
   const params = useParams();
@@ -68,37 +61,35 @@ export default function BookPage() {
         <div key={unit.id} className="mb-8">
           <h2 className="text-2xl font-semibold mb-2">{unit.title}</h2>
           {/* Unit-level summaries (activeInSlots) */}
-          {unit.summeries.filter(s => s.activeInSlots?.onuse === true) .map((ds: any) => (
-            <InfoCard key={ds.id} title="Unit Summary">
+          {unit.summeries.filter(s => s.activeInSlots?.onuse === true).map((ds: any) => (
+            <div key={ds.id} className="mb-4 text-slate-100">
               <ReactMarkdown>{ds.content}</ReactMarkdown>
-            </InfoCard>
+            </div>
           ))}
           {unit.lessons.map(lesson => (
             <div key={lesson.id} className="mb-6 ml-4">
               <h3 className="text-xl font-medium mb-2">{lesson.title}</h3>
 
               {lesson.summeries.filter(s => s.activeInSlots?.onuse === true).map((summary) => (
-                <InfoCard key={summary.id} title="Lesson Summary">
+                <div key={summary.id} className="mb-4 text-slate-100">
                   <ReactMarkdown>{summary.content}</ReactMarkdown>
-                </InfoCard>
+                </div>
               ))}
 
               {lesson.notes.filter(n => n.activeInSlots?.onuse === true).map((note) => (
-                <InfoCard key={note.id} title="Lesson Note">
+                <div key={note.id} className="mb-4 text-slate-100">
                   <ReactMarkdown>{note.content}</ReactMarkdown>
-                </InfoCard>
+                </div>
               ))}
 
               {lesson.analogies.filter(a => a.activeInSlots?.onuse === true).map((analogy) => (
-                <InfoCard key={analogy.id} title="Lesson Analogy">
-                  <ReactMarkdown>{analogy.content}</ReactMarkdown>
-                </InfoCard>
+                <Analogy key={analogy.id} analogy={analogy as any} />
               ))}
 
               {lesson.keywords.filter(k => k.activeInSlots?.onuse === true).map((keyword: any) => (
-                <InfoCard key={keyword.id} title="Lesson Keywords">
+                <div key={keyword.id} className="mb-4 text-slate-100">
                   <ReactMarkdown>{keyword.content || keyword.id}</ReactMarkdown>
-                </InfoCard>
+                </div>
               ))}
 
               {lesson.realParagraphs.map((rp) => {
@@ -106,35 +97,33 @@ export default function BookPage() {
 
                 return (
                   <div key={rp.id} className="mb-4 ml-4">
-                    
-                    <div className="text-base text-slate-100 mb-2">
-                      <ReactMarkdown>
-                      {chosenParagraph?.content || rp.content || "No paragraph content available"}
-                      </ReactMarkdown>
-                    </div>
-                    
+                    <Paragraph
+                      paragraph={{
+                        id: rp.id,
+                        content: chosenParagraph?.content || rp.content || "No paragraph content available"
+                      }}
+                    />
+
                     {rp.analogies.filter(a => a.activeInSlots?.onuse === true).map((a: any) => (
-                      <InfoCard key={a.id} title="Paragraph Analogy">
-                        <ReactMarkdown>{a.content}</ReactMarkdown>
-                      </InfoCard>
+                      <Analogy key={a.id} analogy={a as any} />
                     ))}
 
                     {lesson.notes?.filter(n => n.activeInSlots?.onuse === true).map((n: any) => (
-                      <InfoCard key={`note-${n.id}`} title="Paragraph Note">
+                      <div key={`note-${n.id}`} className="mb-4 text-slate-100">
                         <ReactMarkdown>{n.content}</ReactMarkdown>
-                      </InfoCard>
+                      </div>
                     ))}
 
                     {rp.keywords?.filter(k => k.activeInSlots?.onuse === true).map((k: any) => (
-                      <InfoCard key={k.id} title="Paragraph Keyword">
+                      <div key={k.id} className="mb-4 text-slate-100">
                         <ReactMarkdown>{k.content || "No keyword text"}</ReactMarkdown>
-                      </InfoCard>
+                      </div>
                     ))}
 
                     {lesson.summeries?.filter(s => s.activeInSlots?.onuse === true).map((s: any) => (
-                      <InfoCard key={`summary-${s.id}`} title="Paragraph Summary">
+                      <div key={`summary-${s.id}`} className="mb-4 text-slate-100">
                         <ReactMarkdown>{s.content}</ReactMarkdown>
-                      </InfoCard>
+                      </div>
                     ))}
                   </div>
                 );

@@ -384,7 +384,10 @@ const fullBookArgs = Prisma.validator<Prisma.BookDefaultArgs>()({
                   include: { activeInDefault: true }
                 },
                 analogies: {
-                  include: { activeInSlots: true }
+                  include: {
+                    activeInSlots: true,
+                    userActions: true
+                  }
                 },
                 keywords: {
                   include: { activeInSlots: true }
@@ -398,7 +401,10 @@ const fullBookArgs = Prisma.validator<Prisma.BookDefaultArgs>()({
               include: { activeInSlots: true } 
             },
             analogies: {
-              include: { activeInSlots: true }
+              include: {
+                activeInSlots: true,
+                userActions: true
+              }
             },
             keywords: {
               include: { activeInSlots: true }

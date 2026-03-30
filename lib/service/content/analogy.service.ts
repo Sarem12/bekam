@@ -26,11 +26,37 @@ export async function GetAnalogy(UserId: string, contentId: string, type: 'lesso
     const analogyRecord = await GetBestAnalogy(UserId, type, contentId);
 
     if (analogyRecord) {
+        const existingUserAction = await prisma.userAnalogy.findFirst({
+            where: { UserId, AnalogyId: analogyRecord.id }
+        });
+
+        if (existingUserAction) {
+            await prisma.userAnalogy.update({
+                where: { id: existingUserAction.id },
+                data: { onuse: true }
+            });
+        } else {
+            await prisma.userAnalogy.create({
+                data: {
+                    UserId,
+                    AnalogyId: analogyRecord.id,
+                    status: 'neutral',
+                    onuse: true
+                }
+            });
+        }
+
         await prisma.analogy.update({
             where: { id: analogyRecord.id },
             data: { views: { increment: 1 }, usage: { increment: 1 } }
         });
-        return { content: analogyRecord.content, id: analogyRecord.id };
+
+        const fullAnalogy = await prisma.analogy.findUnique({
+            where: { id: analogyRecord.id },
+            include: { userActions: { where: { UserId } } }
+        });
+        if (!fullAnalogy) return { error: "Analogy not found" };
+        return fullAnalogy;
     }
 
     // 2. Fetch User and Content
@@ -96,7 +122,7 @@ export async function GetAnalogy(UserId: string, contentId: string, type: 'lesso
     if (existingSlot) {
         await prisma.defaultAnalogy.update({
             where: { id: existingSlot.id },
-            data: { AnalogyId: finalAnalogy.id } // Set new one as active
+            data: { AnalogyId: finalAnalogy.id, onuse: true } // Set new one as active
         });
     } else {
         await prisma.defaultAnalogy.create({
@@ -105,13 +131,19 @@ export async function GetAnalogy(UserId: string, contentId: string, type: 'lesso
                 AnalogyId: finalAnalogy.id, // Mandatory 1:1 link
                 [isLesson ? "lessonId" : "RealParagraphId"]: contentId,
                 order: 0,
+                onuse: true,
                 // Add this first one to its own pool
                 alternatives: { connect: { id: finalAnalogy.id } }
             }
         });
     }
 
-    return { ...response, id: finalAnalogy.id };
+    const savedAnalogy = await prisma.analogy.findUnique({
+        where: { id: finalAnalogy.id },
+        include: { userActions: { where: { UserId } } }
+    });
+    if (!savedAnalogy) return { error: "Analogy not found" };
+    return savedAnalogy;
 }
 
 /**
@@ -137,9 +169,35 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
         });
         await prisma.defaultAnalogy.update({
             where: { id: DefaultAnalogyId },
-            data: { AnalogyId: best.id }
+            data: { AnalogyId: best.id, onuse: true }
         });
-        return best;
+
+        const existingUserAction = await prisma.userAnalogy.findFirst({
+            where: { UserId: userId, AnalogyId: best.id }
+        });
+
+        if (existingUserAction) {
+            await prisma.userAnalogy.update({
+                where: { id: existingUserAction.id },
+                data: { onuse: true }
+            });
+        } else {
+            await prisma.userAnalogy.create({
+                data: {
+                    UserId: userId,
+                    AnalogyId: best.id,
+                    status: 'neutral',
+                    onuse: true
+                }
+            });
+        }
+
+        const savedBest = await prisma.analogy.findUnique({
+            where: { id: best.id },
+            include: { userActions: { where: { UserId: userId } } }
+        });
+        if (!savedBest) return { error: "Analogy not found" };
+        return savedBest;
     }
 
     // 3. 🔥 NO reuse → generate directly
@@ -196,10 +254,15 @@ export async function ChangeAnalogy(DefaultAnalogyId: string, userId: string) {
     // 5. Update the Slot to point to the new ID
     await prisma.defaultAnalogy.update({
         where: { id: DefaultAnalogyId },
-        data: { AnalogyId: createdAnalogy.id }
+        data: { AnalogyId: createdAnalogy.id, onuse: true }
     });
 
-    return { ...response, id: createdAnalogy.id };
+    const savedCreated = await prisma.analogy.findUnique({
+        where: { id: createdAnalogy.id },
+        include: { userActions: { where: { UserId: userId } } }
+    });
+    if (!savedCreated) return { error: "Analogy not found" };
+    return savedCreated;
 }
 
 /**
@@ -321,4 +384,19 @@ export async function FlagEventAnalogy(UserId: string, AnalogyId: string) {
     ]);
 
     return { success: true, flagged: newFlagStatus };
+}
+
+export async function RemoveAnalogy(UserId: string, AnalogyId: string) {
+    const currentAction = await prisma.userAnalogy.findFirst({
+        where: { UserId, AnalogyId }
+    });
+
+    if (!currentAction) return { error: "UserAnalogy not found" };
+
+    await prisma.userAnalogy.update({
+        where: { id: currentAction.id },
+        data: { onuse: false }
+    });
+
+    return { success: true };
 }
