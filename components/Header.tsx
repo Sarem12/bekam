@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { authUtils } from "@/lib/localdata";
 import { User } from "@prisma/client";
 import { Bell, ChevronDown, LogOut, Settings, User as UserIcon } from "lucide-react";
@@ -12,6 +12,7 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -31,6 +32,10 @@ export function Header({ user }: HeaderProps) {
     authUtils.clearId();
     router.replace("/login");
   };
+
+  if (pathname?.startsWith("/login") || pathname?.startsWith("/signup")) {
+    return null;
+  }
 
   return (
     <header className="flex items-center justify-between gap-6 bg-slate-950 px-7 py-1 shadow-lg shadow-slate-950/20">

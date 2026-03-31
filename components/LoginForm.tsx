@@ -36,8 +36,9 @@ export default function LoginForm() {
         console.log("Saved ID:", result.userId);
         console.log("Read after save:", authUtils.getId());
 
-        // ✅ NAVIGATE (NO reload)
+        // ✅ NAVIGATE and refresh layout state
         router.replace("/");
+        router.refresh();
       } else {
         setError("Invalid response from server.");
       }

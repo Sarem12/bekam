@@ -64,8 +64,8 @@ export function Analogy({ analogy, text }: AnalogyProps) {
       });
 
       const result = await parseJsonResponse(response);
-      if (!response.ok || !result || result.error) {
-        console.error(result.error || "Analogy action failed");
+      if (!response.ok || !result || result?.error) {
+        console.error(result?.error || "Analogy action failed");
         return null;
       }
 
@@ -100,8 +100,8 @@ export function Analogy({ analogy, text }: AnalogyProps) {
       });
       const result = await parseJsonResponse(response);
 
-      if (!response.ok || !result || result.error) {
-        console.error(result.error || "Change analogy failed");
+      if (!response.ok || !result || result?.error) {
+        console.error(result?.error || "Change analogy failed");
         setChangeStatus("Unable to regenerate");
         return;
       }
@@ -147,8 +147,8 @@ export function Analogy({ analogy, text }: AnalogyProps) {
       });
 
       const result = await response.json();
-      if (!response.ok || result.error) {
-        console.error(result.error || "Remove analogy failed");
+      if (!response.ok || result?.error) {
+        console.error(result?.error || "Remove analogy failed");
         setChangeStatus("Unable to remove analogy");
         return;
       }

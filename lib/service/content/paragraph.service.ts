@@ -40,7 +40,9 @@ export async function GetParagraph(UserId: string, RealParagraphId: string) {
         ? response.content
         : (typeof (response as any).personalized === "string" && (response as any).personalized.trim())
             ? (response as any).personalized
-            : "Generated paragraph content";
+            : "";
+
+    if (!paragraphText) return { error: "Paragraph generation failed" };
 
     const result = await prisma.$transaction(async (tx) => {
         // Find or create the Slot (DefaultParagraph)
@@ -106,7 +108,7 @@ export async function GetParagraph(UserId: string, RealParagraphId: string) {
         }
     });
 
-    return { content: response.content, id: result.__newParagraphId };
+    return { ...response, content: paragraphText, id: result.__newParagraphId };
 }
 
 /**
@@ -152,9 +154,17 @@ export async function ChangeParagraph(DefaultParagraphId: string, userId: string
 
     if (response.error) return response;
 
+    const paragraphText = (typeof response.content === "string" && response.content.trim())
+      ? response.content
+      : (typeof (response as any).personalized === "string" && (response as any).personalized.trim())
+        ? (response as any).personalized
+        : "";
+
+    if (!paragraphText) return { error: "Paragraph generation failed" };
+
     const created = await prisma.paragraph.create({
         data: {
-            content: response.content,
+            content: paragraphText,
             LessonId: slot.LessonId,
             MasterParagraphId: slot.RealParagraphId,
             defaultParagraphId: DefaultParagraphId, // Links to the pool
@@ -167,7 +177,7 @@ export async function ChangeParagraph(DefaultParagraphId: string, userId: string
         data: { ParagraphId: created.id }
     });
 
-    return { ...response, id: created.id };
+    return { ...response, content: paragraphText, id: created.id };
 }
 
 

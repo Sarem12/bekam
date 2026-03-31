@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { MoreVertical, Lightbulb, ThumbsUp, ThumbsDown, Flag, RefreshCw } from "lucide-react";
 import { authUtils } from "@/lib/localdata";
@@ -22,8 +22,13 @@ export function Paragraph({ paragraph }: ParagraphProps) {
   const [userStatus, setUserStatus] = useState<"liked" | "disliked" | "neutral">("neutral");
   const [isFlagged, setIsFlagged] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
+  const [currentContent, setCurrentContent] = useState<string>(paragraph.content || "");
 
-  const content = paragraph.content || "";
+  useEffect(() => {
+    setCurrentContent(paragraph.content || "");
+  }, [paragraph.content]);
+
+  const content = currentContent;
 
   const parseJsonResponse = async (response: Response) => {
     const text = await response.text();
@@ -46,6 +51,8 @@ export function Paragraph({ paragraph }: ParagraphProps) {
 
     setShowMenu(false);
     setIsGenerating(true);
+    setGeneratedAnalogy(null);
+    setAnalogyOnUse(false);
     setGenerateStatus("Generating analogy...");
 
     try {
@@ -56,8 +63,8 @@ export function Paragraph({ paragraph }: ParagraphProps) {
       });
       const result = await parseJsonResponse(response);
 
-      if (!response.ok || !result || result.error) {
-        console.error(result.error || "Failed to generate analogy");
+      if (!response.ok || !result || result?.error) {
+        console.error(result?.error || "Failed to generate analogy");
         setGenerateStatus("Failed to generate analogy");
         return;
       }
@@ -81,6 +88,12 @@ export function Paragraph({ paragraph }: ParagraphProps) {
       return;
     }
 
+    if (action === "change") {
+      setGenerateStatus("Regenerating paragraph...");
+      setGeneratedAnalogy(null);
+      setAnalogyOnUse(false);
+    }
+
     setLoadingAction(true);
     try {
       const path = action === "change" ? "/api/paragraph/change" : `/api/paragraph/${action}`;
@@ -90,13 +103,18 @@ export function Paragraph({ paragraph }: ParagraphProps) {
         body: JSON.stringify({ userId, realParagraphId: paragraph.id })
       });
       const result = await parseJsonResponse(response);
-      if (!response.ok || !result || result.error) {
-        console.error(result.error || "Paragraph action failed");
+      if (!response.ok || !result || result?.error) {
+        const errorMessage = result?.error || "Paragraph action failed";
+        console.error(errorMessage);
         setGenerateStatus("Action failed");
         return;
       }
 
-      if (action === "flag") {
+      if (action === "change") {
+        if (typeof result.content === "string") {
+          setCurrentContent(result.content);
+        }
+      } else if (action === "flag") {
         setIsFlagged(Boolean(result.flagged));
       } else if (action === "like" || action === "dislike") {
         setUserStatus(result.newStatus ?? "neutral");
