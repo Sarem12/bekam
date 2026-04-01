@@ -1,9 +1,13 @@
-
+import type { Metadata } from "next";
 import { getAllBooks } from "@/lib/service";
 import { deleteBook, createBook } from "@/lib/service/admin";
 import AddBookModal from "@/components/admin/AddBookModal";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
+
+export const metadata: Metadata = {
+  title: "Admin",
+};
 
 export default async function AdminPage() {
   const books = await getAllBooks();

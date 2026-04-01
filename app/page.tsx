@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { HomeLibrary } from "@/components/home/HomeLibrary";
 import { getAllBooks, getUserById } from "@/lib/service";
+
+export const metadata: Metadata = {
+  title: "Home",
+};
 
 export default async function Home() {
   const cookieStore = await cookies();

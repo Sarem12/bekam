@@ -41,7 +41,10 @@ const themeInitScript = `
 `;
 
 export const metadata: Metadata = {
-  title: "Bekam AI | Admin",
+  title: {
+    default: "Bekam",
+    template: "%s | Bekam",
+  },
   description: "Curriculum Management System",
 };
 
